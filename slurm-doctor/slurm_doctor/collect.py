@@ -320,11 +320,15 @@ class Collector:
             bundle.submit_script_path = str(dst)
 
     def _stdio(self, bundle: CollectedBundle) -> None:
-        for stream in ("StdOut", "StdErr"):
-            declared = bundle.meta.get(stream)
+        # Primary source: scontrol's StdOut/StdErr. Fallback when scontrol
+        # didn't run (e.g. job purged from controller memory): parse
+        # #SBATCH --output / --error from the submit script.
+        from_script = _sbatch_io_paths(bundle.submit_script_path, bundle.jobid)
+        for stream, key in (("StdOut", "output"), ("StdErr", "error")):
+            declared = bundle.meta.get(stream) or from_script.get(key)
             if not declared:
                 continue
-            kind = stream.lower()  # StdOut -> stdout, StdErr -> stderr
+            kind = stream.lower()
             target = self.cache_dir / f"{kind}.txt"
             src = Path(declared)
             f = StdioFile(declared_path=declared, cached_path=None)
@@ -445,6 +449,37 @@ def truncated_copy(src: Path, dst: Path, max_bytes: int) -> tuple[int, bool]:
 
 
 _NODELIST_RANGE = re.compile(r"([a-zA-Z][a-zA-Z0-9_-]*)\[([0-9,\-]+)\]")
+
+_SBATCH_OUTPUT = re.compile(
+    r"^\s*#SBATCH\s+(?:--(output|error)[=\s]+|-o\s+|-e\s+)([^\s#]+)",
+    re.MULTILINE,
+)
+
+
+def _sbatch_io_paths(script_path: str | None, jobid: str) -> dict[str, str]:
+    """Extract output / error paths from #SBATCH directives, substituting %j.
+
+    Only handles the common substitutions (%j, %J, %x is intentionally skipped
+    because we don't have JobName here). Returns {} when the script isn't
+    available.
+    """
+    if not script_path:
+        return {}
+    try:
+        text = Path(script_path).read_text(errors="replace")
+    except OSError:
+        return {}
+    out: dict[str, str] = {}
+    for m in _SBATCH_OUTPUT.finditer(text):
+        flag, path = m.group(1), m.group(2)
+        key = (
+            flag
+            if flag in ("output", "error")
+            else ("output" if "-o" in m.group(0) else "error")
+        )
+        path = path.replace("%j", jobid).replace("%J", jobid)
+        out.setdefault(key, path)
+    return out
 
 
 def expand_nodelist(nodelist: str) -> list[str]:

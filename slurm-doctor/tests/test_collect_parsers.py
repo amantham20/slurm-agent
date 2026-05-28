@@ -8,6 +8,7 @@ from conftest import read_fixture
 from slurm_doctor.collect import (
     SACCT_COLS,
     _ratio,
+    _sbatch_io_paths,
     _slice_log_by_time,
     expand_nodelist,
     parse_sacct_parsable2,
@@ -111,6 +112,38 @@ def test_slice_log_by_jobid_keeps_relevant_lines():
     assert "task 0 (564) exited with exit code 127" in sliced  # step-tagged
     for line in sliced.splitlines():
         assert "JobId=2" in line or "[2." in line
+
+
+def test_sbatch_io_paths_extracts_output_and_error(tmp_path):
+    script = tmp_path / "x.sh"
+    script.write_text(
+        "#!/bin/bash\n"
+        "#SBATCH --job-name=demo\n"
+        "#SBATCH --output=/data/demo_%j.out\n"
+        "#SBATCH --error=/data/demo_%j.err\n"
+        "#SBATCH --mem=200M\n"
+        "echo hi\n"
+    )
+    paths = _sbatch_io_paths(str(script), "2")
+    assert paths["output"] == "/data/demo_2.out"
+    assert paths["error"] == "/data/demo_2.err"
+
+
+def test_sbatch_io_paths_supports_short_flags(tmp_path):
+    script = tmp_path / "x.sh"
+    script.write_text(
+        "#!/bin/bash\n"
+        "#SBATCH -o /tmp/out_%j.log\n"
+        "#SBATCH -e /tmp/err_%j.log\n"
+    )
+    paths = _sbatch_io_paths(str(script), "42")
+    assert paths["output"] == "/tmp/out_42.log"
+    assert paths["error"] == "/tmp/err_42.log"
+
+
+def test_sbatch_io_paths_missing_script_is_empty():
+    assert _sbatch_io_paths(None, "1") == {}
+    assert _sbatch_io_paths("/no/such/script.sh", "1") == {}
 
 
 def test_slice_log_by_window_includes_recent_lines():

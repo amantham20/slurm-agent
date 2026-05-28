@@ -1,0 +1,140 @@
+# Built-in failure-pattern rules for slurm-doctor.
+#
+# Each rule:
+#   id            - stable identifier (used in reports/diffs)
+#   title         - one-line label rendered in report.md
+#   category      - groups rules; first hit per category wins
+#   match         - predicates that must ALL be true (regex/list/threshold)
+#   hint          - human-readable explanation of what likely went wrong
+#   fix_kind      - canonical fix kind (consumed by fix.py in Phase 4)
+#   confidence    - 0.0 - 1.0; how sure we are when this matches
+#
+# Predicates supported by the engine:
+#   stderr_regex, stdout_regex, slurmd_log_regex, dmesg_regex,
+#   state_in (Layer-1 categories), exit_code_in, reason_regex,
+#   max_rss_ratio_above (MaxRSS / ReqMem threshold).
+#
+# Order matters: higher-specificity rules first within a category.
+
+- id: missing_executable
+  title: Script referenced a binary that doesn't exist or isn't on PATH
+  category: environment
+  match:
+    stderr_regex: 'No such file or directory'
+    exit_code_in: ['127:0']
+  hint: |
+    The job's stderr shows a "No such file or directory" error and the script
+    exited 127 (command not found). Either the executable's path is wrong, the
+    binary depends on a module that wasn't loaded, or PATH was set up by a
+    shell profile that the batch shell doesn't source.
+  fix_kind: fix_path
+  confidence: 0.92
+
+- id: missing_module
+  title: Tried to "module load" a module that isn't available
+  category: modules
+  match:
+    stderr_regex: '(module: command not found|Lmod has detected the following error|Unable to locate a modulefile)'
+  hint: |
+    Either Lmod isn't initialised in this shell, or the module name is wrong.
+    Source /etc/profile.d/lmod.sh before the `module load`, or correct the
+    module spec (e.g. `python/3.11` instead of `python311`).
+  fix_kind: prepend_modules
+  confidence: 0.90
+
+- id: python_module_not_found
+  title: Python interpreter could not import a required package
+  category: python_runtime
+  match:
+    stderr_regex: 'ModuleNotFoundError: No module named'
+  hint: |
+    A Python `import` failed because the package isn't installed in the
+    interpreter the job used. Activate the right venv, load the matching
+    python module, or pip-install the missing package on the cluster node.
+  fix_kind: prepend_modules
+  confidence: 0.88
+
+- id: walltime_exceeded
+  title: Job hit its requested wall-clock limit
+  category: time
+  match:
+    state_in: ['timeout']
+  hint: |
+    The job was killed because Elapsed >= Timelimit. If this run finished a
+    real unit of work and was just close to the bound, increase `--time`. If
+    it was looping, fix that instead — bumping --time will just delay the
+    next failure.
+  fix_kind: bump_time
+  confidence: 0.95
+
+- id: cpu_oom_killed_by_kernel
+  title: Linux kernel OOM-killer terminated a process from this job
+  category: memory_kernel
+  match:
+    dmesg_regex: '(killed process|Out of memory|invoked oom-killer)'
+  hint: |
+    dmesg shows the kernel OOM killer fired around this job's window. Increase
+    `--mem`, switch to a more memory-efficient algorithm, or stream the data
+    rather than loading it whole into RAM.
+  fix_kind: bump_memory
+  confidence: 0.88
+
+- id: slurm_oom_state
+  title: SLURM marked the job OUT_OF_MEMORY (cgroup memory limit hit)
+  category: memory_slurm
+  match:
+    state_in: ['oom']
+  hint: |
+    The job's cgroup hit its memory limit. Either increase `--mem` (and rerun
+    so MaxRSS is sampled), or reduce peak memory in the workload.
+  fix_kind: bump_memory
+  confidence: 0.97
+
+- id: memory_pressure_suspicious
+  title: MaxRSS is suspiciously close to ReqMem (likely silent OOM)
+  category: memory_heuristic
+  match:
+    max_rss_ratio_above: 0.9
+  hint: |
+    The job used >=90% of its requested memory. Even if SLURM didn't kill it
+    outright (cgroup enforcement may be off), the workload was on the verge of
+    OOM. Increase `--mem` with margin or profile peak usage.
+  fix_kind: bump_memory
+  confidence: 0.70
+
+- id: segfault
+  title: Process died with SIGSEGV (segmentation fault)
+  category: native_crash
+  match:
+    stderr_regex: '(Segmentation fault|SIGSEGV|signal 11)'
+  hint: |
+    A native process crashed with SIGSEGV. This is usually a bug in the
+    application, a library mismatch (wrong glibc/CUDA/openMPI), or a memory
+    corruption. Rerun with a smaller input first; if it reproduces, attach a
+    debugger or enable core dumps.
+  fix_kind: add_set_eux
+  confidence: 0.80
+
+- id: mpi_launch_failure
+  title: MPI launcher failed before the job's binary ran
+  category: mpi
+  match:
+    stderr_regex: '(PMIx Error|Hydra|srun: error: launch failed|orte_init failed|mpirun has exited)'
+  hint: |
+    The MPI launcher couldn't start the job's tasks across nodes. Prefer
+    `srun --mpi=pmix` over `mpirun` under SLURM; mismatched -n vs ntasks is
+    another common cause.
+  fix_kind: swap_mpi_launcher
+  confidence: 0.85
+
+- id: permission_denied
+  title: A file the job needed had wrong permissions
+  category: permissions
+  match:
+    stderr_regex: 'Permission denied'
+  hint: |
+    A required file is unreadable/unwritable as the running UID. Check that
+    the binary is +x, the working directory and any -o/--error paths are
+    writable by your user, and shared-storage ACLs are correct.
+  fix_kind: null
+  confidence: 0.75
