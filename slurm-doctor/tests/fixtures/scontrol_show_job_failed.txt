@@ -1,0 +1,32 @@
+JobId=2 JobName=sd_demo
+   SLUID=s8HSKSP86ZYF00
+   UserId=root(0) GroupId=root(0) MCS_label=N/A
+   Priority=1 Nice=0 Account=root QOS=normal
+   JobState=FAILED Reason=NonZeroExitCode Dependency=(null)
+   Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=127:0
+   DerivedExitCode=0:0
+   RunTime=00:00:01 TimeLimit=00:01:00 TimeMin=N/A
+   SubmitTime=2026-05-28T02:56:57 EligibleTime=2026-05-28T02:56:57
+   AccrueTime=2026-05-28T02:56:57
+   StartTime=2026-05-28T02:56:57 EndTime=2026-05-28T02:56:58 Deadline=N/A
+   SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-05-28T02:56:57 Scheduler=Main
+   Partition=cpu AllocNode:Sid=slurmctld:546
+   ReqNodeList=(null) ExcNodeList=(null)
+   NodeList=c1
+   BatchHost=c1
+   NumNodes=1 NumCPUs=1 NumTasks=1 CPUs/Task=1 ReqB:S:C:T=0:0:*:*
+   ReqTRES=cpu=1,mem=200M,node=1,billing=1
+   AllocTRES=cpu=1,mem=200M,node=1,billing=1
+   Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=*
+   JOB_GRES=(null)
+     Nodes=c1 CPU_IDs=0 Mem=200 GRES=
+   MinCPUsNode=1 MinMemoryNode=200M MinTmpDiskNode=0
+   Features=(null) DelayBoot=00:00:00
+   OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null)
+   Command=/data/sd_demo.sh
+   SubmitLine=sbatch --parsable /data/sd_demo.sh
+   WorkDir=/data
+   StdErr=/data/sd_demo_2.err
+   StdIn=/dev/null
+   StdOut=/data/sd_demo_2.out
+

@@ -1,0 +1,1 @@
+/var/spool/slurm/job00002/slurm_script: line 8: ./this_binary_does_not_exist: No such file or directory

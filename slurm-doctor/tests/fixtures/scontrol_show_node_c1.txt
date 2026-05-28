@@ -1,0 +1,16 @@
+NodeName=c1 Arch=x86_64 CoresPerSocket=4 
+   CPUAlloc=0 CPUEfctv=4 CPUTot=4 CPULoad=0.24
+   AvailableFeatures=cpu
+   ActiveFeatures=cpu
+   Gres=(null)
+   NodeAddr=172.18.0.2 NodeHostName=c1 Version=25.11.4
+   OS=Linux 6.18.5 #2 SMP PREEMPT_DYNAMIC Wed Jan 14 17:56:08 UTC 2026 
+   RealMemory=16080 AllocMem=0 FreeMem=14776 Sockets=1 Boards=1
+   State=IDLE+DYNAMIC_NORM ThreadsPerCore=1 TmpDisk=0 Weight=1 Owner=N/A MCS_label=N/A
+   Partitions=cpu 
+   BootTime=2026-05-28T02:45:15 SlurmdStartTime=2026-05-28T02:53:35
+   LastBusyTime=2026-05-28T02:56:58 ResumeAfterTime=None
+   CfgTRES=cpu=4,mem=16080M,billing=4
+   AllocTRES=
+   CurrentWatts=0 AveWatts=0
+

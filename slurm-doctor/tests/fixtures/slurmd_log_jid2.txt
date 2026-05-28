@@ -1,0 +1,71 @@
+[2026-05-28T02:56:58.005] debug2: Processing RPC: REQUEST_BATCH_JOB_LAUNCH
+[2026-05-28T02:56:58.005] debug:  _rpc_batch_job: starting for JobId=2 SLUID=s8HSKSP86ZYF00 StepId=2.batch
+[2026-05-28T02:56:58.005] task/affinity: task_p_slurmd_batch_request: task_p_slurmd_batch_request: JobId=2 SLUID=s8HSKSP86ZYF00
+[2026-05-28T02:56:58.005] task/affinity: batch_bind: JobId=2 SLUID=s8HSKSP86ZYF00 CPU input mask for node: 0x1
+[2026-05-28T02:56:58.005] task/affinity: batch_bind: JobId=2 SLUID=s8HSKSP86ZYF00 CPU final HW mask for node: 0x1
+[2026-05-28T02:56:58.005] Launching batch JobId=2 SLUID=s8HSKSP86ZYF00 for UID 0
+[2026-05-28T02:56:58.008] debug2: debug level read from slurmd is 'debug2'.
+[2026-05-28T02:56:58.008] debug2: _read_slurmd_conf_lite: slurmd sent 8 TRES.
+[2026-05-28T02:56:58.008] cred/munge: init: Munge credential signature plugin loaded
+[2026-05-28T02:56:58.009] [2.batch] debug:  auth/munge: init: loaded
+[2026-05-28T02:56:58.009] [2.batch] debug:  tls/none: init: tls/none loaded
+[2026-05-28T02:56:58.009] [2.batch] debug:  Reading cgroup.conf file /etc/slurm/cgroup.conf
+[2026-05-28T02:56:58.009] [2.batch] debug:  hash/k12: init: init: KangarooTwelve hash plugin loaded
+[2026-05-28T02:56:58.009] [2.batch] debug2: No acct_gather.conf file (/etc/slurm/acct_gather.conf)
+[2026-05-28T02:56:58.009] [2.batch] task/affinity: init: task affinity plugin loaded with CPU mask 0xf
+[2026-05-28T02:56:58.009] [2.batch] debug:  jobacct_gather/linux: init: Job accounting gather LINUX plugin loaded
+[2026-05-28T02:56:58.009] [2.batch] topology/flat: init: topology Flat plugin loaded
+[2026-05-28T02:56:58.009] [2.batch] debug:  gres/gpu: init: loaded
+[2026-05-28T02:56:58.010] [2.batch] debug:  gpu/generic: init: init: GPU Generic plugin loaded
+[2026-05-28T02:56:58.010] [2.batch] debug2: setup for a batch_job
+[2026-05-28T02:56:58.010] [2.batch] debug2: profile signaling type Task
+[2026-05-28T02:56:58.010] [2.batch] debug:  laying out the 1 tasks on 1 hosts c1 dist 2
+[2026-05-28T02:56:58.011] [2.batch] debug:  close_slurmd_conn: sending 0: No error
+[2026-05-28T02:56:58.011] [2.batch] debug:  Message thread started pid = 555
+[2026-05-28T02:56:58.011] [2.batch] debug:  Setting slurmstepd(555) oom_score_adj to -999
+[2026-05-28T02:56:58.011] [2.batch] debug2: Before call to spank_init()
+[2026-05-28T02:56:58.011] [2.batch] debug:  spank: opening plugin stack /etc/slurm/plugstack.conf
+[2026-05-28T02:56:58.011] [2.batch] debug2: After call to spank_init()
+[2026-05-28T02:56:58.011] [2.batch] debug2: Entering _setup_normal_io
+[2026-05-28T02:56:58.012] [2.batch] debug2: Leaving  _setup_normal_io
+[2026-05-28T02:56:58.012] [2.batch] debug levels are stderr='error', logfile='debug2', syslog='quiet'
+[2026-05-28T02:56:58.012] [2.batch] starting 1 tasks
+[2026-05-28T02:56:58.012] [2.batch] task 0 (564) started 2026-05-28T02:56:58
+[2026-05-28T02:56:58.012] [2.batch] debug2: adding task 0 pid 564 on node 0 to jobacct
+[2026-05-28T02:56:58.013] [2.batch] debug:  task/affinity: task_p_pre_launch: affinity StepId=2.batch, task:0 bind:mask_cpu
+[2026-05-28T02:56:58.013] [2.batch] debug2: _set_limit: conf setrlimit RLIMIT_CPU no change in value: 18446744073709551615
+[2026-05-28T02:56:58.013] [2.batch] debug2: _set_limit: conf setrlimit RLIMIT_FSIZE no change in value: 18446744073709551615
+[2026-05-28T02:56:58.013] [2.batch] debug2: _set_limit: conf setrlimit RLIMIT_DATA no change in value: 18446744073709551615
+[2026-05-28T02:56:58.013] [2.batch] debug2: _set_limit: conf setrlimit RLIMIT_STACK no change in value: 12800000
+[2026-05-28T02:56:58.013] [2.batch] debug2: _set_limit: RLIMIT_CORE   : max:inf cur:inf req:0
+[2026-05-28T02:56:58.013] [2.batch] debug2: _set_limit: conf setrlimit RLIMIT_CORE succeeded
+[2026-05-28T02:56:58.013] [2.batch] debug2: _set_limit: conf setrlimit RLIMIT_RSS no change in value: 18446744073709551615
+[2026-05-28T02:56:58.013] [2.batch] debug2: _set_limit: conf setrlimit RLIMIT_NPROC no change in value: 64290
+[2026-05-28T02:56:58.013] [2.batch] debug2: _set_limit: conf setrlimit RLIMIT_NOFILE no change in value: 4096
+[2026-05-28T02:56:58.013] [2.batch] debug2: _set_limit: conf setrlimit RLIMIT_MEMLOCK no change in value: 8388608
+[2026-05-28T02:56:58.013] [2.batch] debug2: _set_limit: conf setrlimit RLIMIT_AS no change in value: 18446744073709551615
+[2026-05-28T02:56:58.013] [2.batch] debug2: Set task rss(200 MB)
+[2026-05-28T02:56:58.013] [2.batch] debug2: Task RSS limits from _prlimit: rlim_cur:209715200 rlim_max:209715200
+[2026-05-28T02:56:58.013] [2.batch] debug2: Not setting task vsize rlimit, task bytes: 209715200, rlimit_max: 18446744073709551615
+[2026-05-28T02:56:58.020] [2.batch] debug2: removing task 0 pid 564 from jobacct
+[2026-05-28T02:56:58.020] [2.batch] debug2: _wait_for_any_task: found ended task with primary pid 564 
+[2026-05-28T02:56:58.020] [2.batch] task 0 (564) exited with exit code 127.
+[2026-05-28T02:56:58.020] [2.batch] debug:  task/affinity: task_p_post_term: affinity StepId=2.batch, task 0
+[2026-05-28T02:56:58.020] [2.batch] debug2: step_terminate_monitor will run for 60 secs
+[2026-05-28T02:56:58.020] [2.batch] debug:  signaling condition
+[2026-05-28T02:56:58.020] [2.batch] debug2: step_terminate_monitor is stopping
+[2026-05-28T02:56:58.020] [2.batch] debug2: acct_gather_profile_startpoll: poll already ended!
+[2026-05-28T02:56:58.020] [2.batch] debug2: stepd_send_pending_exit_msgs: aggregated 1 task exit messages (rc=[0x7f00]:Unknown error 32512)
+[2026-05-28T02:56:58.020] [2.batch] debug2: Before call to spank_fini()
+[2026-05-28T02:56:58.020] [2.batch] debug2: After call to spank_fini()
+[2026-05-28T02:56:58.020] [2.batch] JobId=2 SLUID=s8HSKSP86ZYF00 completed with slurm_rc = 0, job_rc = 32512
+[2026-05-28T02:56:58.023] [2.batch] debug2:   false, shutdown
+[2026-05-28T02:56:58.023] [2.batch] debug:  Message thread exited
+[2026-05-28T02:56:58.023] [2.batch] stepd_cleanup: done with step (step_rc: 32512, slurm_rc: 0 - No error)
+[2026-05-28T02:56:58.025] debug2: Processing RPC: REQUEST_TERMINATE_JOB
+[2026-05-28T02:56:58.025] debug:  _rpc_terminate_job: starting for JobId=2 SLUID=s8HSKSP86ZYF00 JobId=2
+[2026-05-28T02:56:58.025] debug:  credential for JobId=2 SLUID=s8HSKSP86ZYF00 revoked
+[2026-05-28T02:56:58.025] debug2: No steps in JobId=2 SLUID=s8HSKSP86ZYF00 to send signal 999
+[2026-05-28T02:56:58.025] debug2: No steps in JobId=2 SLUID=s8HSKSP86ZYF00 to send signal 18
+[2026-05-28T02:56:58.025] debug2: No steps in JobId=2 SLUID=s8HSKSP86ZYF00 to send signal 15
+[2026-05-28T02:56:58.025] debug2: set revoke expiration for JobId=2 SLUID=s8HSKSP86ZYF00 to 1779937138 UTS
