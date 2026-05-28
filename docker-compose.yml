@@ -123,6 +123,9 @@ services:
     image: slurm-docker-cluster:${SLURM_VERSION:-25.11.4}
     init: true
     command: ["slurmd-cpu"]
+    # Dynamic replica-name detection can lose a startup race against Compose DNS
+    # propagation, aborting slurmd on first boot; restart heals it.
+    restart: on-failure
     working_dir: /data
     privileged: true
     environment:
@@ -157,6 +160,7 @@ services:
     image: slurm-docker-cluster:${SLURM_VERSION:-25.11.4}
     init: true
     command: ["slurmd-gpu"]
+    restart: on-failure
     working_dir: /data
     privileged: true
     profiles: ["gpu"]
