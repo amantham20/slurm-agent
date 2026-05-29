@@ -1,0 +1,17 @@
+# === slurm-doctor: automatic failure diagnosis on job completion ===========
+# Appended to slurm.conf by `make install-hook`, which then runs
+# `scontrol reconfigure` (no slurmctld restart needed — JobCompType is
+# reconfig-reloadable on Slurm 25.11).
+#
+# On every job completion slurmctld runs the hook below. For failure states
+# (FAILED / TIMEOUT / OUT_OF_MEMORY / NODE_FAIL / BOOT_FAIL / DEADLINE) the hook
+# backgrounds `slurm-doctor suggest <jobid>`; reports land in
+# /data/jobs/.slurm-doctor/<jobid>/{report.md,report.json} and a one-line
+# trail is appended to /data/jobs/.slurm-doctor/hook.log.
+#
+# The hook NEVER heals — automatic resubmission stays a deliberate CLI action.
+#
+# To disable: remove these two lines (restore your previous JobComp settings)
+# and run `scontrol reconfigure`, or run `make uninstall-hook`.
+JobCompType=jobcomp/script
+JobCompLoc=/opt/slurm-doctor/hooks/jobcomp_hook.sh

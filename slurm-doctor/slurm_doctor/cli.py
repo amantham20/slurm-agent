@@ -42,6 +42,10 @@ MAX_HEALS_PER_CHAIN = 2
 def cmd_suggest(args) -> int:
     bundle, diag, paths = _collect_diagnose_report(args)
     md, _js = paths
+    if getattr(args, "hook", False):
+        # Hook-triggered: emit a single compact line meant to surface in logs.
+        print(f"slurm-doctor[hook]: {diag.tldr} -> {md}")
+        return 0
     print(diag.tldr)
     print(f"report: {md}")
     return 0
@@ -246,6 +250,8 @@ def build_parser() -> argparse.ArgumentParser:
                     help="Override the gate; apply even non-safe fix kinds.")
     ap.add_argument("--dry-run", action="store_true",
                     help="For heal: don't actually sbatch the patched script.")
+    ap.add_argument("--hook", action="store_true",
+                    help="Mark this as a hook-triggered run (compact stdout line).")
 
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name in ("suggest", "patch", "heal"):

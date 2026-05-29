@@ -1,4 +1,4 @@
-.PHONY: help build build-no-cache up start down clean logs test test-monitoring test-gpu test-ondemand status shell logs-slurmctld logs-slurmdbd update-slurm reload-slurm version set-version build-all test-all test-version rebuild jobs quick-test run-examples scale-cpu-workers scale-gpu-workers
+.PHONY: help build build-no-cache up start down clean logs test test-monitoring test-gpu test-ondemand status shell logs-slurmctld logs-slurmdbd update-slurm reload-slurm install-hook uninstall-hook version set-version build-all test-all test-version rebuild jobs quick-test run-examples scale-cpu-workers scale-gpu-workers
 
 # Default target
 .DEFAULT_GOAL := help
@@ -159,6 +159,36 @@ reload-slurm:  ## Reload Slurm config without restart (after live editing)
 	@echo "Reloading Slurm configuration..."
 	docker exec slurmctld scontrol reconfigure
 	@echo "✓ Configuration reloaded"
+
+install-hook:  ## Install the slurm-doctor jobcomp/script hook into slurmctld
+	@echo "==> Installing slurm-doctor package into slurmctld:/opt/slurm-doctor"
+	docker exec slurmctld rm -rf /opt/slurm-doctor
+	docker cp slurm-doctor slurmctld:/opt/slurm-doctor
+	@echo "==> Exposing hook at the JobCompLoc path (/opt/slurm-doctor/hooks)"
+	docker exec slurmctld bash -c 'mkdir -p /opt/slurm-doctor/hooks && \
+		ln -sf /opt/slurm-doctor/slurm_doctor/hooks/jobcomp_hook.sh /opt/slurm-doctor/hooks/jobcomp_hook.sh && \
+		ln -sf /opt/slurm-doctor/slurm_doctor/hooks/epilog.sh /opt/slurm-doctor/hooks/epilog.sh && \
+		chmod -R a+rX /opt/slurm-doctor && chmod 0755 /opt/slurm-doctor/slurm_doctor/hooks/*.sh'
+	@echo "==> Ensuring PyYAML is importable as the slurm user"
+	docker exec slurmctld bash -c 'python3 -c "import yaml" 2>/dev/null || dnf -y -q install python3.12-pyyaml'
+	@echo "==> Creating slurm-writable report + cache dirs"
+	docker exec slurmctld bash -c 'mkdir -p /data/jobs/.slurm-doctor/.cache && chown -R slurm:slurm /data/jobs/.slurm-doctor'
+	@echo "==> Injecting JobComp settings into /etc/slurm/slurm.conf (backed up)"
+	docker exec slurmctld bash -c 'cp /etc/slurm/slurm.conf /etc/slurm/slurm.conf.sd-bak.$$(date +%s); \
+		grep -vE "^(JobCompType|JobCompLoc)=" /etc/slurm/slurm.conf | grep -v "slurm-doctor:" > /etc/slurm/slurm.conf.new && \
+		mv /etc/slurm/slurm.conf.new /etc/slurm/slurm.conf && \
+		cat /opt/slurm-doctor/docker/slurm.conf.snippet >> /etc/slurm/slurm.conf'
+	@echo "==> Reconfiguring slurmctld"
+	docker exec slurmctld scontrol reconfigure
+	@docker exec slurmctld bash -c 'scontrol show config | grep -iE "JobCompType|JobCompLoc"'
+	@echo "✓ slurm-doctor hook installed. Failed jobs auto-report to /data/jobs/.slurm-doctor/<jobid>/"
+
+uninstall-hook:  ## Remove the slurm-doctor hook and restore jobcomp/filetxt
+	docker exec slurmctld bash -c 'grep -vE "^(JobCompType|JobCompLoc)=" /etc/slurm/slurm.conf | grep -v "slurm-doctor:" > /etc/slurm/slurm.conf.new && \
+		mv /etc/slurm/slurm.conf.new /etc/slurm/slurm.conf && \
+		printf "JobCompType=jobcomp/filetxt\nJobCompLoc=/var/log/slurm/jobcomp.log\n" >> /etc/slurm/slurm.conf'
+	docker exec slurmctld scontrol reconfigure
+	@echo "✓ slurm-doctor hook removed; JobComp restored to jobcomp/filetxt"
 
 scale-cpu-workers:  ## Scale CPU workers (usage: make scale-cpu-workers N=3)
 	@if [ -z "$(N)" ]; then \
