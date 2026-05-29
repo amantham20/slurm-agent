@@ -1,0 +1,7 @@
+# slurm-doctor periodic sweep (Mode C) via cron — alternative to the systemd timer.
+# Install on the controller:  cp slurm-doctor.cron /etc/cron.d/slurm-doctor
+# Runs as the slurm user every 15 minutes with a 20-minute lookback (overlap so
+# nothing is missed). Sweep only ever runs `suggest`, never heal.
+SHELL=/bin/bash
+PYTHONPATH=/opt/slurm-doctor
+*/15 * * * * slurm /usr/bin/python3 -m slurm_doctor.cli --reports-dir /data/jobs/.slurm-doctor --cache-dir /data/jobs/.slurm-doctor/.cache sweep --since now-20minutes >> /data/jobs/.slurm-doctor/sweep.log 2>&1

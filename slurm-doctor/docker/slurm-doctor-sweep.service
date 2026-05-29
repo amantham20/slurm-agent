@@ -1,0 +1,20 @@
+# slurm-doctor periodic sweep (Mode C). Install on the controller host:
+#   cp slurm-doctor-sweep.{service,timer} /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now slurm-doctor-sweep.timer
+[Unit]
+Description=slurm-doctor sweep: diagnose recently failed SLURM jobs
+After=slurmctld.service
+Wants=slurmctld.service
+
+[Service]
+Type=oneshot
+User=slurm
+Group=slurm
+Environment=PYTHONPATH=/opt/slurm-doctor
+ExecStart=/usr/bin/python3 -m slurm_doctor.cli \
+    --reports-dir /data/jobs/.slurm-doctor \
+    --cache-dir /data/jobs/.slurm-doctor/.cache \
+    sweep --since now-75minutes
+# Sweep is read-only (suggest, never heal) and idempotent; safe to fire often.
+Nice=10
+IOSchedulingClass=idle

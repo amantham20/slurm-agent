@@ -129,6 +129,55 @@ def test_collector_rejects_unsafe_jobid(tmp_path):
         Collector("2; rm -rf /", cache_root=tmp_path)
 
 
+def test_collector_recovers_purged_job_from_workdir(tmp_path):
+    """When scontrol has purged the job and sacct -B is empty, recover the
+    script from <WorkDir>/<JobName>.sh and stdio by globbing WorkDir."""
+    workdir = tmp_path / "wd"
+    workdir.mkdir()
+    (workdir / "oom.sh").write_text("#!/bin/bash\n#SBATCH -J oom\necho purged\n")
+    (workdir / "oom_77.out").write_text("stdout for purged job\n")
+    (workdir / "oom_77.err").write_text("MemoryError\n")
+
+    # sacct returns accounting (JobName=oom, WorkDir=wd) but scontrol fails and
+    # sacct -B is empty — exactly the purged-job case. Build the row by zipping
+    # values to columns so field alignment can't drift.
+    from slurm_doctor.collect import SACCT_COLS
+    vals = {
+        "JobID": "77", "JobIDRaw": "77", "JobName": "oom", "User": "root",
+        "Partition": "cpu", "State": "FAILED", "ExitCode": "1:0",
+        "DerivedExitCode": "0:0", "Reason": "None", "Elapsed": "00:00:01",
+        "Timelimit": "00:01:00", "ReqMem": "200M", "ReqCPUS": "1",
+        "AllocCPUS": "1", "AllocTRES": "cpu=1", "NodeList": "c1", "NNodes": "1",
+        "WorkDir": str(workdir),
+    }
+    acct = (
+        "|".join(SACCT_COLS) + "\n"
+        + "|".join(vals.get(c, "") for c in SACCT_COLS) + "\n"
+    )
+
+    def fake(argv, **kw):
+        if argv[:2] == ["sacct", "-j"]:
+            return ShellResult(argv=list(argv), returncode=0, stdout=acct, stderr="")
+        if argv[:2] == ["sacct", "-B"]:
+            return ShellResult(argv=list(argv), returncode=0, stdout="", stderr="")
+        if argv[:3] == ["scontrol", "show", "job"]:
+            return ShellResult(argv=list(argv), returncode=1, stdout="",
+                               stderr="Invalid job id specified", missing=False)
+        if argv[:3] == ["scontrol", "show", "node"]:
+            return ShellResult(argv=list(argv), returncode=0, stdout="NodeName=c1 ", stderr="")
+        return ShellResult(argv=list(argv), returncode=127, stdout="", stderr="", missing=True)
+
+    c = Collector("77", cache_root=tmp_path / "cache", runner=fake,
+                  slurmd_log_candidates=[str(tmp_path / "nolog_{node}.log")])
+    bundle = c.collect()
+    assert bundle.jobname == "oom"
+    assert bundle.submit_script_path is not None
+    assert "purged" in Path(bundle.submit_script_path).read_text()
+    # stdio recovered via the WorkDir glob
+    assert bundle.stderr is not None and bundle.stderr.cached_path
+    assert "MemoryError" in Path(bundle.stderr.cached_path).read_text()
+
+
 def test_collector_idempotent_overwrites_cache(tmp_path):
     cmd = tmp_path / "s.sh"
     cmd.write_text("#!/bin/bash\necho ok\n")

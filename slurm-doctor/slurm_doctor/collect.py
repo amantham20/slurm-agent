@@ -54,6 +54,7 @@ class CollectedBundle:
 
     # Headline accounting fields (parent step), populated when available
     state: str | None = None
+    jobname: str | None = None
     exit_code: str | None = None
     derived_exit_code: str | None = None
     reason: str | None = None
@@ -264,6 +265,7 @@ class Collector:
             return
         parent = steps[0]  # parent row is JobID == self.jobid (no .step suffix)
         bundle.state = parent.get("State") or None
+        bundle.jobname = parent.get("JobName") or None
         bundle.exit_code = parent.get("ExitCode") or None
         bundle.derived_exit_code = parent.get("DerivedExitCode") or None
         bundle.reason = parent.get("Reason") or None
@@ -309,23 +311,42 @@ class Collector:
         # is not enabled — treat it as missing and trigger the fallback.
         if script.strip() in ("", "NONE"):
             script = ""
-        # Fallback: read Command= path from scontrol meta if -B produced nothing.
+        # Fallback 1: read Command= path from scontrol meta if -B produced nothing.
         if not script.strip():
             cmd_path = bundle.meta.get("Command")
             if cmd_path and Path(cmd_path).is_file():
                 script = Path(cmd_path).read_text()
+        # Fallback 2 (job purged from controller AND no -B): guess the script
+        # from WorkDir + JobName, e.g. /data/oom.sh for JobName=oom.
+        if not script.strip():
+            script = self._guess_script_from_workdir(bundle)
         if script.strip():
             dst = self.cache_dir / "submit_script.sh"
             dst.write_text(script)
             bundle.submit_script_path = str(dst)
 
+    def _guess_script_from_workdir(self, bundle: CollectedBundle) -> str:
+        """Last-resort submit-script recovery: <WorkDir>/<JobName>[.sh]."""
+        wd = bundle.workdir
+        name = bundle.jobname
+        if not wd or not name or not Path(wd).is_dir():
+            return ""
+        for cand in (Path(wd) / f"{name}.sh", Path(wd) / name, Path(wd) / f"{name}.sbatch"):
+            if cand.is_file():
+                try:
+                    return cand.read_text(errors="replace")
+                except OSError:
+                    continue
+        return ""
+
     def _stdio(self, bundle: CollectedBundle) -> None:
-        # Primary source: scontrol's StdOut/StdErr. Fallback when scontrol
-        # didn't run (e.g. job purged from controller memory): parse
-        # #SBATCH --output / --error from the submit script.
+        # Primary source: scontrol's StdOut/StdErr. Fallbacks for a purged job:
+        #  (a) #SBATCH --output/--error directives from the submit script,
+        #  (b) glob WorkDir for files whose name contains the jobid.
         from_script = _sbatch_io_paths(bundle.submit_script_path, bundle.jobid)
+        glob_io = self._glob_workdir_io(bundle)
         for stream, key in (("StdOut", "output"), ("StdErr", "error")):
-            declared = bundle.meta.get(stream) or from_script.get(key)
+            declared = bundle.meta.get(stream) or from_script.get(key) or glob_io.get(key)
             if not declared:
                 continue
             kind = stream.lower()
@@ -338,6 +359,23 @@ class Collector:
                 f.truncated = truncated
                 f.cached_path = str(target)
             setattr(bundle, kind, f)
+
+    def _glob_workdir_io(self, bundle: CollectedBundle) -> dict[str, str]:
+        """Best-effort: find <WorkDir>/*<jobid>*.out / .err for a purged job."""
+        wd = bundle.workdir
+        if not wd or not Path(wd).is_dir():
+            return {}
+        out: dict[str, str] = {}
+        try:
+            entries = list(Path(wd).iterdir())
+        except OSError:
+            return {}
+        for key, exts in (("output", (".out", ".log")), ("error", (".err",))):
+            for p in entries:
+                if self.jobid in p.name and p.suffix in exts and p.is_file():
+                    out[key] = str(p)
+                    break
+        return out
 
     def _nodes(self, bundle: CollectedBundle) -> None:
         if not bundle.nodelist or bundle.nodelist in ("None assigned", ""):

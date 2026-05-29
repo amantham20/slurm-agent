@@ -88,6 +88,69 @@ def cmd_patch(args) -> int:
     return 0
 
 
+# States sacct should treat as failures worth sweeping (abbreviations).
+SWEEP_STATES = "F,TO,OOM,NF,BF,DL"
+
+
+def _normalise_since(since: str) -> str:
+    """Translate friendly '<N> hour(s) ago' / '<N> day(s) ago' into sacct's
+    now-<N><unit> syntax; otherwise pass the value through unchanged so callers
+    can use any native sacct time (e.g. 2026-05-29T10:00:00, now-90minutes)."""
+    m = re.match(r"^\s*(\d+)\s+(second|minute|hour|day|week)s?\s+ago\s*$", since, re.I)
+    if not m:
+        return since
+    n, unit = m.group(1), m.group(2).lower()
+    return f"now-{n}{unit}s"
+
+
+def cmd_sweep(args) -> int:
+    since = _normalise_since(args.since)
+    # sacct's --state filter is a no-op unless an explicit --endtime is given
+    # alongside --starttime; without it the time window collapses and nothing
+    # matches. Pin endtime to the configurable --until (default now).
+    r = default_runner(
+        ["sacct", "-X", "-n", "--parsable2", f"--starttime={since}",
+         f"--endtime={args.until}", f"--state={SWEEP_STATES}",
+         "--format=JobID,State"],
+        timeout=30,
+    )
+    if r.missing or r.returncode != 0:
+        print(f"slurm-doctor: sacct failed (rc={r.returncode}): {r.stderr[:200]}",
+              file=sys.stderr)
+        return 2
+
+    jobids: list[str] = []
+    for line in r.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        jid = line.split("|")[0]
+        # Skip array/het sub-components that sacct may emit (e.g. 12_3, 12+0);
+        # keep the plain or array-task ids the collector accepts.
+        if re.match(r"^[0-9]+(_[0-9]+)?$", jid):
+            jobids.append(jid)
+
+    reports_root = Path(args.reports_dir)
+    rules = load_rules(args.rules_dir)
+    n_new = n_skip = n_err = 0
+    for jid in jobids:
+        if (reports_root / jid / "report.md").exists() and not args.force:
+            n_skip += 1
+            continue
+        try:
+            bundle = collect(jid, cache_root=args.cache_dir)
+            diag = diagnose(bundle, rules, use_llm=_llm_enabled(args))
+            md, _ = write_report(diag, bundle, dest_root=args.reports_dir)
+            n_new += 1
+            print(f"[{jid}] {diag.tldr}")
+        except Exception as e:  # noqa: BLE001 - keep sweeping past one bad job
+            n_err += 1
+            log.warning("sweep: job %s failed: %r", jid, e)
+    print(f"sweep since '{since}': {len(jobids)} failed job(s); "
+          f"{n_new} reported, {n_skip} already done, {n_err} errored.")
+    return 0
+
+
 def cmd_heal(args) -> int:
     bundle, diag, (md, _js) = _collect_diagnose_report(args)
     allow = _allow_set(args)
@@ -153,10 +216,14 @@ def cmd_heal(args) -> int:
 # Shared plumbing
 # ---------------------------------------------------------------------------
 
+def _llm_enabled(args) -> bool:
+    return bool(getattr(args, "llm", False)) or os.environ.get("SLURM_DOCTOR_LLM") == "1"
+
+
 def _collect_diagnose_report(args):
     bundle = collect(args.jobid, cache_root=args.cache_dir)
     rules = load_rules(args.rules_dir)
-    diag = diagnose(bundle, rules)
+    diag = diagnose(bundle, rules, use_llm=_llm_enabled(args))
     md, js = write_report(diag, bundle, dest_root=args.reports_dir)
     return bundle, diag, (md, js)
 
@@ -252,11 +319,23 @@ def build_parser() -> argparse.ArgumentParser:
                     help="For heal: don't actually sbatch the patched script.")
     ap.add_argument("--hook", action="store_true",
                     help="Mark this as a hook-triggered run (compact stdout line).")
+    ap.add_argument("--llm", action="store_true",
+                    help="Enable the LLM fallback (Layer 3) when no rule fires. "
+                         "Off by default; also enabled by SLURM_DOCTOR_LLM=1.")
 
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name in ("suggest", "patch", "heal"):
         sp = sub.add_parser(name, help=f"{name} action")
         sp.add_argument("jobid", help="The SLURM job id to diagnose")
+    sweep = sub.add_parser("sweep", help="diagnose every recent failed job")
+    sweep.add_argument("--since", default="1 hour ago",
+                       help="sacct start time: '1 hour ago', 'now-90minutes', "
+                            "or an absolute 2026-05-29T10:00:00")
+    sweep.add_argument("--until", default="now",
+                       help="sacct end time (default now); required by sacct's "
+                            "--state filter")
+    sweep.add_argument("--force", action="store_true",
+                       help="re-report jobs that already have a report")
     return ap
 
 
@@ -266,7 +345,8 @@ def main(argv: list[str] | None = None) -> int:
         level=getattr(logging, str(args.log_level).upper(), logging.WARNING),
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
     )
-    fn = {"suggest": cmd_suggest, "patch": cmd_patch, "heal": cmd_heal}[args.cmd]
+    fn = {"suggest": cmd_suggest, "patch": cmd_patch, "heal": cmd_heal,
+          "sweep": cmd_sweep}[args.cmd]
     return fn(args)
 
 

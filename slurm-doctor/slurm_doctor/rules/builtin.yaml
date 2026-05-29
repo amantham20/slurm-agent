@@ -132,7 +132,7 @@
   title: MPI launcher failed before the job's binary ran
   category: mpi
   match:
-    stderr_regex: '(PMIx Error|Hydra|srun: error: launch failed|orte_init failed|mpirun has exited)'
+    stderr_regex: '(PMIx Error|Hydra|srun: error: launch failed|orte_init failed|mpirun has exited|Cannot create context for mpi/|Unable to load any plugin|Invalid MPI type)'
   hint: |
     The MPI launcher couldn't start the job's tasks across nodes. Prefer
     `srun --mpi=pmix` over `mpirun` under SLURM; mismatched -n vs ntasks is
@@ -151,3 +151,80 @@
     writable by your user, and shared-storage ACLs are correct.
   fix_kind: null
   confidence: 0.75
+
+- id: gpu_out_of_memory
+  title: GPU ran out of memory (CUDA OOM)
+  category: gpu_memory
+  match:
+    stderr_regex: '(CUDA out of memory|cudaErrorMemoryAllocation|torch\.cuda\.OutOfMemoryError|CUDA_ERROR_OUT_OF_MEMORY|Resource exhausted:.*memory|cudaError(Memory|OutOfMemory))'
+  hint: |
+    The GPU's device memory was exhausted. This is rarely fixable by SLURM
+    flags — reduce batch size / model size, enable gradient checkpointing,
+    or request a GPU with more VRAM (e.g. --constraint=a100). Bumping --mem
+    does NOT help; that's host RAM, not device memory.
+  fix_kind: null
+  confidence: 0.9
+
+- id: cuda_driver_missing
+  title: CUDA driver/runtime unavailable (likely landed on a CPU-only node)
+  category: gpu_driver
+  match:
+    stderr_regex: "(NVIDIA-SMI has failed|couldn't communicate with the NVIDIA driver|no CUDA-capable device is detected|CUDA driver version is insufficient|libcuda\\.so.*cannot open|CUDA_ERROR_NO_DEVICE)"
+  hint: |
+    The job tried to use a GPU but no working CUDA driver/device was present
+    — almost always because it ran on a CPU-only node without requesting a
+    GPU. Add `--gres=gpu:1` (and submit to the gpu partition), or pin the
+    feature with --constraint.
+  fix_kind: request_constraint
+  confidence: 0.85
+
+- id: disk_full_or_quota
+  title: Ran out of disk space or hit a quota while writing
+  category: disk
+  match:
+    stderr_regex: '(No space left on device|Disk quota exceeded|quota exceeded|cannot write: No space)'
+  hint: |
+    A write failed because the target filesystem is full or the user/group
+    quota is exhausted. Point large outputs at scratch ($TMPDIR or a /scratch
+    mount), clean up old run dirs, or request a quota increase. This is not a
+    SLURM resource fix — more --mem won't help disk.
+  fix_kind: null
+  confidence: 0.92
+
+- id: stale_network_mount
+  title: A network filesystem mount was stale or unreachable
+  category: filesystem
+  match:
+    stderr_regex: '(Stale file handle|Stale NFS file handle|Transport endpoint is not connected|Input/output error|Lustre.*not available|mount\.nfs.*timed out)'
+  hint: |
+    A shared mount (NFS/Lustre/GPFS) hiccuped mid-job — usually transient
+    infrastructure, not your code. Requeue with a small backoff so it retries
+    on a healthy mount; if it recurs, report the node/mount to ops.
+  fix_kind: add_requeue_guard
+  confidence: 0.8
+
+- id: license_server_unreachable
+  title: License server unreachable or out of seats (FlexLM/Ansys)
+  category: license
+  match:
+    stderr_regex: '(FLEXlm|FlexNet|lmgrd|Cannot connect to license server|License server machine is down|Cannot find license file|Error checking out license|Licensed number of users already reached|ANSYSLI_SERVERS|feature .* not available)'
+  hint: |
+    The application couldn't check out a license. Either the license server
+    is down/unreachable from the compute node, the feature is exhausted, or
+    the env (LM_LICENSE_FILE / ANSYSLMD_LICENSE_FILE) points at the wrong
+    host. Requeue with backoff for transient server outages.
+  fix_kind: add_requeue_guard
+  confidence: 0.8
+
+- id: node_drained_midjob
+  title: Node was drained or went down during the job
+  category: node_state
+  match:
+    state_in: ['node_fail', 'boot_fail']
+  hint: |
+    The node running this job was drained or failed mid-run (NODE_FAIL /
+    BOOT_FAIL). This is an infrastructure event, not your code. Requeue so the
+    scheduler places it on a healthy node; pin --constraint to avoid a known-
+    bad feature if it keeps landing on the same hardware.
+  fix_kind: add_requeue_guard
+  confidence: 0.85

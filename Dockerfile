@@ -234,6 +234,7 @@ RUN set -ex \
        procps-ng \
        psmisc \
        python3.12 \
+       python3.12-pyyaml \
        readline \
        tcl \
        vim-enhanced \
@@ -346,6 +347,18 @@ RUN set -ex \
     && rm -rf /tmp/slurm-config
 
 COPY --chown=slurm:slurm --chmod=0600 examples /root/examples
+
+# Bake the slurm-doctor package into the image so /opt/slurm-doctor always
+# exists. This matters for Mode B: JobCompType=jobcomp/script makes slurmctld
+# fatal at boot if JobCompLoc is missing, and /opt is NOT a volume — a container
+# restart would otherwise wipe a docker-cp'd install and brick the controller.
+# `make install-hook` still refreshes this for live development.
+COPY slurm-doctor /opt/slurm-doctor
+RUN mkdir -p /opt/slurm-doctor/hooks \
+    && ln -sf /opt/slurm-doctor/slurm_doctor/hooks/jobcomp_hook.sh /opt/slurm-doctor/hooks/jobcomp_hook.sh \
+    && ln -sf /opt/slurm-doctor/slurm_doctor/hooks/epilog.sh /opt/slurm-doctor/hooks/epilog.sh \
+    && chmod 0755 /opt/slurm-doctor/slurm_doctor/hooks/*.sh \
+    && chmod -R a+rX /opt/slurm-doctor
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

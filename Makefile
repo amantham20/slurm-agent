@@ -1,4 +1,4 @@
-.PHONY: help build build-no-cache up start down clean logs test test-monitoring test-gpu test-ondemand status shell logs-slurmctld logs-slurmdbd update-slurm reload-slurm install-hook uninstall-hook version set-version build-all test-all test-version rebuild jobs quick-test run-examples scale-cpu-workers scale-gpu-workers
+.PHONY: help build build-no-cache up start down clean logs test test-monitoring test-gpu test-ondemand status shell logs-slurmctld logs-slurmdbd update-slurm reload-slurm install-hook uninstall-hook test-doctor test-doctor-unit version set-version build-all test-all test-version rebuild jobs quick-test run-examples scale-cpu-workers scale-gpu-workers
 
 # Default target
 .DEFAULT_GOAL := help
@@ -161,10 +161,10 @@ reload-slurm:  ## Reload Slurm config without restart (after live editing)
 	@echo "✓ Configuration reloaded"
 
 install-hook:  ## Install the slurm-doctor jobcomp/script hook into slurmctld
-	@echo "==> Installing slurm-doctor package into slurmctld:/opt/slurm-doctor"
-	docker exec slurmctld rm -rf /opt/slurm-doctor
-	docker cp slurm-doctor slurmctld:/opt/slurm-doctor
-	@echo "==> Exposing hook at the JobCompLoc path (/opt/slurm-doctor/hooks)"
+	@echo "==> /opt/slurm-doctor is baked into the image; refreshing it for dev"
+	@docker exec slurmctld test -d /opt/slurm-doctor || { \
+		echo "ERROR: /opt/slurm-doctor not found. Run 'make build && make up' to bake it in."; exit 1; }
+	-docker cp slurm-doctor/. slurmctld:/opt/slurm-doctor/ 2>/dev/null || true
 	docker exec slurmctld bash -c 'mkdir -p /opt/slurm-doctor/hooks && \
 		ln -sf /opt/slurm-doctor/slurm_doctor/hooks/jobcomp_hook.sh /opt/slurm-doctor/hooks/jobcomp_hook.sh && \
 		ln -sf /opt/slurm-doctor/slurm_doctor/hooks/epilog.sh /opt/slurm-doctor/hooks/epilog.sh && \
@@ -182,6 +182,19 @@ install-hook:  ## Install the slurm-doctor jobcomp/script hook into slurmctld
 	docker exec slurmctld scontrol reconfigure
 	@docker exec slurmctld bash -c 'scontrol show config | grep -iE "JobCompType|JobCompLoc"'
 	@echo "✓ slurm-doctor hook installed. Failed jobs auto-report to /data/jobs/.slurm-doctor/<jobid>/"
+
+test-doctor:  ## Run slurm-doctor end-to-end tests inside the live cluster
+	@echo "==> Refreshing slurm-doctor in slurmctld"
+	docker exec slurmctld rm -rf /opt/slurm-doctor
+	docker cp slurm-doctor slurmctld:/opt/slurm-doctor
+	@echo "==> Ensuring pytest + PyYAML are available in slurmctld"
+	docker exec slurmctld bash -c 'python3 -c "import yaml" 2>/dev/null || dnf -y -q install python3.12-pyyaml'
+	docker exec slurmctld bash -c 'python3 -c "import pytest" 2>/dev/null || dnf -y -q install python3.12-pytest'
+	@echo "==> Running end-to-end tests against the live cluster"
+	docker exec -w /opt/slurm-doctor slurmctld python3 -m pytest tests/test_end_to_end.py -v
+
+test-doctor-unit:  ## Run slurm-doctor host unit tests (no cluster needed)
+	cd slurm-doctor && python3 -m pytest tests/ --ignore=tests/test_end_to_end.py -q
 
 uninstall-hook:  ## Remove the slurm-doctor hook and restore jobcomp/filetxt
 	docker exec slurmctld bash -c 'grep -vE "^(JobCompType|JobCompLoc)=" /etc/slurm/slurm.conf | grep -v "slurm-doctor:" > /etc/slurm/slurm.conf.new && \

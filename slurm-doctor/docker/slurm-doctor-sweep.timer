@@ -1,0 +1,13 @@
+[Unit]
+Description=Run slurm-doctor sweep hourly
+
+[Timer]
+OnBootSec=10min
+OnCalendar=hourly
+# 75-minute lookback with hourly firing gives overlap so nothing slips through
+# a missed run; reports already written are skipped.
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,14 @@
+# Optional dev overlay: bind-mount the working copy of the package over the
+# image-baked /opt/slurm-doctor so you can edit slurm-doctor/ on the host and
+# have slurmctld pick it up without rebuilding.
+#
+# Bring the cluster up with both compose files from the repo root:
+#   docker compose -f docker-compose.yml \
+#       -f slurm-doctor/docker/slurm-doctor.compose.yaml up -d
+#
+# Not needed in production: the package is baked into the image (see Dockerfile),
+# so the jobcomp hook survives container restarts on its own.
+services:
+  slurmctld:
+    volumes:
+      - ${SLURM_DOCTOR_SRC:-./slurm-doctor}:/opt/slurm-doctor:ro

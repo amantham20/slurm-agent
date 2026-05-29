@@ -65,15 +65,12 @@ def apply_fix(fix_kind: str, original_text: str, bundle: CollectedBundle) -> Fix
         )
     # Refuse patches that rewrite too much of the script.
     if out.patched_text is not None:
-        ratio = _changed_line_ratio(original_text, out.patched_text)
-        if ratio > _MAX_DIFF_RATIO:
+        reason = _over_edit_reason(original_text, out.patched_text)
+        if reason is not None:
             return FixOutcome(
                 fix_kind=fix_kind,
                 patched_text=None,
-                skipped_reason=(
-                    f"diff would rewrite {ratio:.0%} of lines "
-                    f"(> {_MAX_DIFF_RATIO:.0%} ceiling); downgrade to suggest"
-                ),
+                skipped_reason=f"{reason}; would rewrite too much — downgrade to suggest",
                 diff=None,
             )
     return out
@@ -202,11 +199,159 @@ def _prepend_modules(text: str, bundle: CollectedBundle) -> FixOutcome:
     return FixOutcome(fix_kind="prepend_modules", patched_text=patched, skipped_reason=None, diff=None)
 
 
+_MISSING_PATH_RX = re.compile(r"([^\s:]+):\s*No such file or directory")
+
+
+def _fix_path(text: str, bundle: CollectedBundle) -> FixOutcome:
+    """Rewrite a missing path to a similarly-named file that exists in WorkDir.
+
+    Reads the missing path from stderr, fuzzy-matches its basename against the
+    files actually present in WorkDir, and rewrites occurrences in the script.
+    If nothing similar exists we raise FixError (caller downgrades to suggest)
+    rather than guess.
+    """
+    import difflib
+    import os
+
+    stderr_path = bundle.stderr.cached_path if bundle.stderr else None
+    stderr = ""
+    if stderr_path:
+        try:
+            stderr = Path(stderr_path).read_text(errors="replace")
+        except OSError:
+            stderr = ""
+    missing = []
+    for m in _MISSING_PATH_RX.finditer(stderr):
+        tok = m.group(1)
+        # ignore the slurm_script wrapper path itself
+        if "slurm_script" in tok:
+            continue
+        missing.append(tok)
+    if not missing:
+        raise FixError("no 'No such file or directory' path found in stderr")
+
+    workdir = bundle.workdir or "."
+    try:
+        present = os.listdir(workdir)
+    except OSError as e:
+        raise FixError(f"can't list WorkDir {workdir!r}: {e}")
+
+    replaced_any = False
+    patched = text
+    for tok in missing:
+        base = Path(tok).name
+        cand = difflib.get_close_matches(base, present, n=1, cutoff=0.6)
+        if not cand or cand[0] == base:
+            continue
+        # Preserve a leading ./ if the original had one.
+        repl = cand[0]
+        if tok.startswith("./"):
+            repl = f"./{repl}"
+        elif tok.startswith("/"):
+            repl = str(Path(workdir) / cand[0])
+        if tok in patched:
+            patched = patched.replace(tok, repl)
+            replaced_any = True
+    if not replaced_any:
+        raise FixError(
+            "no similar file in WorkDir to rewrite to (won't guess a path)"
+        )
+    return FixOutcome(fix_kind="fix_path", patched_text=patched, skipped_reason=None, diff=None)
+
+
+_MPI_LAUNCHER_RX = re.compile(r"(?<![\w./-])(mpirun|mpiexec)(?![\w.-])")
+
+
+def _swap_mpi_launcher(text: str, bundle: CollectedBundle) -> FixOutcome:
+    if "srun --mpi=" in text:
+        return FixOutcome("swap_mpi_launcher", None,
+                          "script already launches via `srun --mpi=`", None)
+    if not _MPI_LAUNCHER_RX.search(text):
+        return FixOutcome("swap_mpi_launcher", None,
+                          "no mpirun/mpiexec invocation found to swap", None)
+    new_lines = []
+    for line in text.splitlines():
+        if line.lstrip().startswith("#"):
+            new_lines.append(line)
+            continue
+        swapped = _MPI_LAUNCHER_RX.sub("srun --mpi=pmix", line)
+        # mpirun's -np maps to srun's -n
+        swapped = re.sub(r"(?<![\w-])-np\b", "-n", swapped)
+        new_lines.append(swapped)
+    patched = "\n".join(new_lines)
+    if text.endswith("\n"):
+        patched += "\n"
+    return FixOutcome("swap_mpi_launcher", patched, None, None)
+
+
+def _request_constraint(text: str, bundle: CollectedBundle) -> FixOutcome:
+    if re.search(r"^\s*#SBATCH\s+(--constraint=|-C\s)", text, re.MULTILINE):
+        return FixOutcome("request_constraint", None,
+                          "script already requests a --constraint", None)
+    # We don't know the right feature for sure; insert a placeholder the user
+    # must fill in. This is why request_constraint is gated behind --yes.
+    feature = "<FEATURE>"
+    patched = _insert_sbatch_directive(
+        text,
+        f"#SBATCH --constraint={feature}   # slurm-doctor: set the node feature to require",
+    )
+    return FixOutcome("request_constraint", patched, None, None)
+
+
+def _add_requeue_guard(text: str, bundle: CollectedBundle) -> FixOutcome:
+    has_requeue = re.search(r"^\s*#SBATCH\s+--requeue\b", text, re.MULTILINE)
+    has_backoff = "SLURM_RESTART_COUNT" in text
+    if has_requeue and has_backoff:
+        return FixOutcome("add_requeue_guard", None,
+                          "script already has --requeue and a backoff guard", None)
+    patched = text
+    if not has_requeue:
+        patched = _insert_sbatch_directive(
+            patched, "#SBATCH --requeue   # slurm-doctor: allow auto-requeue on node/infra failure"
+        )
+    if not has_backoff:
+        lines = patched.splitlines()
+        at = _first_non_directive_line(lines)
+        guard = [
+            "# slurm-doctor: small backoff so a requeued job doesn't hammer a flapping resource",
+            'if [ "${SLURM_RESTART_COUNT:-0}" -gt 0 ]; then sleep $(( SLURM_RESTART_COUNT * 10 )); fi',
+            "",
+        ]
+        lines = lines[:at] + guard + lines[at:]
+        patched = "\n".join(lines)
+        if text.endswith("\n"):
+            patched += "\n"
+    return FixOutcome("add_requeue_guard", patched, None, None)
+
+
+def _pin_gpu_visible(text: str, bundle: CollectedBundle) -> FixOutcome:
+    if "CUDA_VISIBLE_DEVICES" in text or re.search(r"--gpus-per-task", text):
+        return FixOutcome("pin_gpu_visible", None,
+                          "script already pins GPU visibility", None)
+    lines = text.splitlines()
+    at = _first_non_directive_line(lines)
+    block = [
+        "# slurm-doctor: make the GPUs SLURM allocated visible to the process",
+        'export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-${SLURM_JOB_GPUS:-${SLURM_STEP_GPUS:-0}}}"',
+        "",
+    ]
+    lines = lines[:at] + block + lines[at:]
+    patched = "\n".join(lines)
+    if text.endswith("\n"):
+        patched += "\n"
+    return FixOutcome("pin_gpu_visible", patched, None, None)
+
+
 _DISPATCH: dict[str, Callable[[str, CollectedBundle], FixOutcome]] = {
     "bump_memory": _bump_memory,
     "bump_time": _bump_time,
     "add_set_eux": _add_set_eux,
     "prepend_modules": _prepend_modules,
+    "fix_path": _fix_path,
+    "swap_mpi_launcher": _swap_mpi_launcher,
+    "request_constraint": _request_constraint,
+    "add_requeue_guard": _add_requeue_guard,
+    "pin_gpu_visible": _pin_gpu_visible,
 }
 
 
@@ -251,6 +396,18 @@ def _replace_or_insert_sbatch(text: str, key: str, value: str) -> str:
             + new_lines[insert_at:]
         )
     patched = "\n".join(new_lines)
+    if text.endswith("\n"):
+        patched += "\n"
+    return patched
+
+
+def _insert_sbatch_directive(text: str, directive_line: str) -> str:
+    """Insert a new ``#SBATCH`` directive at the end of the contiguous SBATCH
+    block (right before the first non-directive line)."""
+    lines = text.splitlines()
+    at = _first_non_directive_line(lines)
+    lines = lines[:at] + [directive_line] + lines[at:]
+    patched = "\n".join(lines)
     if text.endswith("\n"):
         patched += "\n"
     return patched
@@ -348,19 +505,38 @@ def _unified_diff(orig: str, patched: str, *, label: str) -> str:
     return "\n".join(d.rstrip("\n") for d in diff)
 
 
-def _changed_line_ratio(orig: str, patched: str) -> float:
-    """Return the fraction of ORIGINAL lines that were replaced or deleted.
+def _over_edit_reason(orig: str, patched: str) -> str | None:
+    """Decide whether a patch rewrites too much of the original.
 
-    Pure insertions are not "rewrites" — they leave existing lines intact and
-    don't change the meaning of any line — so they don't count toward the cap.
+    Two independent guards, tuned so legitimate surgical edits on tiny scripts
+    pass while runaway rewrites are caught:
+
+    * altered = original lines replaced or deleted. Allowed up to
+      max(2 lines, 20% of the script). A 1-line --mem swap on a 3-line script
+      (33%) still passes; gutting half a large script does not.
+    * inserted = brand-new lines. Pure insertions (set -e, module load) are
+      cheap, but a patcher that balloons the script is suspect: capped at
+      max(40 lines, 3x the original length).
     """
     o = orig.splitlines()
     p = patched.splitlines()
     if not o:
-        return 1.0 if p else 0.0
+        return None if not p else None
     sm = difflib.SequenceMatcher(a=o, b=p)
-    touched = 0
-    for tag, i1, i2, _j1, _j2 in sm.get_opcodes():
-        if tag in ("replace", "delete"):
-            touched += (i2 - i1)
-    return touched / len(o)
+    altered = inserted = 0
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag == "replace":
+            altered += (i2 - i1)
+            inserted += (j2 - j1)
+        elif tag == "delete":
+            altered += (i2 - i1)
+        elif tag == "insert":
+            inserted += (j2 - j1)
+    altered_budget = max(2, int(_MAX_DIFF_RATIO * len(o)))
+    if altered > altered_budget:
+        pct = altered / len(o)
+        return f"rewrite alters {altered} of {len(o)} original lines ({pct:.0%})"
+    insert_budget = max(40, 3 * len(o))
+    if inserted > insert_budget:
+        return f"rewrite inserts {inserted} new lines (> {insert_budget})"
+    return None

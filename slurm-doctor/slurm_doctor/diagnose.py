@@ -70,6 +70,9 @@ SAFE_FIX_KINDS = {"bump_memory", "bump_time", "add_set_eux"}
 def diagnose(
     bundle: CollectedBundle,
     rules: list[Rule],
+    *,
+    use_llm: bool = False,
+    llm_client: Any | None = None,
 ) -> Diagnosis:
     """Build a Diagnosis from a bundle + rule pack.
 
@@ -79,6 +82,8 @@ def diagnose(
       3. Pick a primary cause: state machine wins when conclusive (timeout,
          oom, node_fail, etc.); otherwise the highest-confidence rule hit.
       4. Build ProposedFixes from the primary cause + supporting rules.
+      5. Only if no rule fired AND the state wasn't conclusive AND use_llm is
+         set, fall back to the LLM (Layer 3).
     """
     state = classify_state(bundle)
     hits = apply_rules(bundle, rules, state=state)
@@ -117,10 +122,49 @@ def diagnose(
             "Consider rerunning with --llm or adding a rule."
         )
 
+    # Layer 3: LLM fallback, only when nothing else explained the failure.
+    llm_res = None
+    inconclusive = state.category in ("unknown", "failed_generic", "completed")
+    if use_llm and not hits and inconclusive:
+        llm_res = _maybe_llm(bundle, llm_client)
+        if llm_res is not None:
+            d.used_llm = True
+            d.root_cause = llm_res.root_cause or d.root_cause
+            d.state_category = f"llm:{llm_res.category}"
+            d.confidence = llm_res.confidence
+            d.tldr = f"Job {bundle.jobid} (LLM): {llm_res.root_cause}"
+            d.contributing_factors = list(llm_res.contributing_factors)
+            if llm_res.evidence_quote:
+                d.state_evidence.append(f"LLM evidence: {llm_res.evidence_quote}")
+
     # Build ProposedFixes. State-machine causes have canonical fixes; rule
     # hits with fix_kinds add more options.
     d.proposed_fixes = _build_fixes(state, hits, bundle)
+
+    # Fold an LLM-suggested fix in (always gated — LLM fixes are never
+    # auto-applicable, so confidence is capped below the heal threshold).
+    if llm_res is not None and llm_res.suggested_fix_kind in FIX_KIND_DESCRIPTIONS \
+            and llm_res.suggested_fix_kind not in {f.fix_kind for f in d.proposed_fixes}:
+        kind = llm_res.suggested_fix_kind
+        d.proposed_fixes.insert(0, ProposedFix(
+            fix_kind=kind,
+            description=FIX_KIND_DESCRIPTIONS[kind],
+            rationale="Suggested by the LLM fallback (review before applying)",
+            confidence=min(d.confidence, 0.84),
+            requires_yes=True,
+        ))
     return d
+
+
+def _maybe_llm(bundle: CollectedBundle, llm_client: Any | None):
+    """Import + call the LLM layer lazily so the SDK stays an optional dep."""
+    try:
+        from .llm import query_llm
+    except Exception as e:  # noqa: BLE001
+        log.warning("llm import failed: %r", e)
+        return None
+    res = query_llm(bundle, client=llm_client)
+    return res
 
 
 # ---------------------------------------------------------------------------

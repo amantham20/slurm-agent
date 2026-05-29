@@ -132,6 +132,63 @@ def test_missing_executable_rule_fires_on_real_stderr(tmp_path):
     assert any("stderr line 1:" in e for e in me.evidence)
 
 
+def _bundle_with_stderr(tmp_path: Path, text: str, **kw) -> CollectedBundle:
+    from slurm_doctor.collect import StdioFile
+    f = tmp_path / "stderr.txt"
+    f.write_text(text)
+    b = CollectedBundle(jobid="1", cache_dir=str(tmp_path), state="FAILED",
+                        exit_code="1:0")
+    for k, v in kw.items():
+        setattr(b, k, v)
+    b.stderr = StdioFile(declared_path="x", cached_path=str(f))
+    return b
+
+
+import pytest as _pytest
+
+
+@_pytest.mark.parametrize("rule_id,stderr", [
+    ("gpu_out_of_memory", "torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 2.00 GiB"),
+    ("cuda_driver_missing", "NVIDIA-SMI has failed because it couldn't communicate with the NVIDIA driver"),
+    ("disk_full_or_quota", "tar: write error: No space left on device"),
+    ("stale_network_mount", "ls: cannot access '/scratch': Stale file handle"),
+    ("license_server_unreachable", "ANSYS LICENSE MANAGER ERROR: Cannot connect to license server machine is down"),
+    ("python_memory_error", "MemoryError"),
+    ("segfault", "/var/spool/slurmd/job/slurm_script: line 9: 1234 Segmentation fault (core dumped) ./a.out"),
+    ("permission_denied", "bash: ./run.sh: Permission denied"),
+])
+def test_new_rules_fire_on_synthetic_stderr(tmp_path, rule_id, stderr):
+    bundle = _bundle_with_stderr(tmp_path, stderr)
+    hits = apply_rules(bundle, load_rules())
+    assert rule_id in {h.rule_id for h in hits}, f"{rule_id} did not fire on: {stderr!r}"
+    hit = next(h for h in hits if h.rule_id == rule_id)
+    # every hit must carry at least one cited evidence line
+    assert hit.evidence, f"{rule_id} produced no evidence"
+
+
+def test_node_drained_rule_fires_on_node_fail_state(tmp_path):
+    b = CollectedBundle(jobid="1", cache_dir=str(tmp_path), state="NODE_FAIL",
+                        nodelist="c1", reason="NonResponding")
+    hits = apply_rules(b, load_rules())
+    assert "node_drained_midjob" in {h.rule_id for h in hits}
+
+
+def test_all_twelve_plus_categories_present():
+    """The shipped pack must cover every category the spec enumerates."""
+    rules = load_rules()
+    cats = {r.category for r in rules}
+    # 14 distinct failure families across the pack
+    expected = {
+        "environment", "modules", "python_runtime", "python_memory", "time",
+        "memory_kernel", "memory_slurm", "memory_heuristic", "native_crash",
+        "mpi", "permissions", "gpu_memory", "gpu_driver", "disk",
+        "filesystem", "license", "node_state",
+    }
+    missing = expected - cats
+    assert not missing, f"missing rule categories: {missing}"
+    assert len(rules) >= 12
+
+
 def test_first_hit_per_category_wins(tmp_path):
     # Two rules in the same category — the first declared one wins.
     rules = [
