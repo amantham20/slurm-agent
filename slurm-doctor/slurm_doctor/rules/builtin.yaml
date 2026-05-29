@@ -54,6 +54,19 @@
   fix_kind: prepend_modules
   confidence: 0.88
 
+- id: python_memory_error
+  title: Python raised MemoryError (allocation refused)
+  category: python_memory
+  match:
+    stderr_regex: 'MemoryError'
+  hint: |
+    Python's allocator was refused (either --mem too low, or a tighter
+    ulimit -v in the wrapper). Increase --mem; if the job was using an
+    explicit ulimit derived from SLURM_MEM_PER_NODE, increasing --mem
+    will automatically widen it.
+  fix_kind: bump_memory
+  confidence: 0.90
+
 - id: walltime_exceeded
   title: Job hit its requested wall-clock limit
   category: time
