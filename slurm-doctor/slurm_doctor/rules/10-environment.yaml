@@ -1,0 +1,60 @@
+# Environment and executable problems.
+
+- id: module_unknown
+  category: environment
+  priority: 10
+  match:
+    stderr_regex: 'Lmod has detected the following error|module\(s\) are unknown: *"?(?P<module_name>[A-Za-z0-9_./-]+)"?'
+  hint: "The module system is loaded but the module name is wrong or not installed on this node. Check `module avail`."
+  confidence: 0.9
+
+- id: missing_module
+  category: environment
+  priority: 11
+  match:
+    stderr_regex: '(?m)(module: command not found|ml: command not found)'
+  hint: "The module system is not initialised in batch shells here. Source the Lmod init script before the first `module load`."
+  fix_kind: prepend_modules
+  confidence: 0.9
+
+- id: venv_activate_missing
+  category: environment
+  priority: 12
+  match:
+    stderr_regex: '(?m)(activate: No such file or directory|conda: command not found|virtualenv.*not found)'
+  hint: "The script activates a virtualenv/conda env that does not exist on the compute node."
+  confidence: 0.8
+
+- id: missing_executable
+  category: exec
+  priority: 20
+  match:
+    stderr_regex: '(?m)(?:line \d+: )?(?P<missing_path>[^\s:]+): No such file or directory'
+  hint: "The command the job tried to run does not exist at that path on the compute node."
+  fix_kind: fix_path
+  confidence: 0.85
+
+- id: command_not_found
+  category: exec
+  priority: 21
+  match:
+    stderr_regex: '(?m)(?:line \d+: )?(?P<missing_path>[^\s:]+): command not found'
+  hint: "The command is not on PATH on the compute node. Load the right module, activate the right env, or use an absolute path."
+  fix_kind: fix_path
+  confidence: 0.8
+
+- id: permission_denied
+  category: exec
+  priority: 22
+  match:
+    stderr_regex: '(?m)(?P<denied_path>[^\s:]+): Permission denied'
+  hint: "The job cannot execute or open a file. chmod +x the binary or check directory/file ownership (squeue runs as the submitting user)."
+  confidence: 0.8
+
+- id: python_module_not_found
+  category: application
+  priority: 30
+  match:
+    stderr_regex: 'ModuleNotFoundError: No module named .?(?P<py_module>[A-Za-z0-9_.]+).?|ImportError: No module named'
+  hint: "Python cannot import a package on the compute node. Activate the same venv/conda env you used at submit time, or pip install it into the job environment."
+  confidence: 0.9

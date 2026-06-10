@@ -1,0 +1,32 @@
+JobId=13 JobName=cuda_missing
+   SLUID=sE51KTS34ABA00
+   UserId=root(0) GroupId=root(0) MCS_label=N/A
+   Priority=1 Nice=0 Account=root QOS=normal
+   JobState=FAILED Reason=NonZeroExitCode Dependency=(null)
+   Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=127:0
+   DerivedExitCode=0:0
+   RunTime=00:00:01 TimeLimit=00:02:00 TimeMin=N/A
+   SubmitTime=2026-06-10T15:41:32 EligibleTime=2026-06-10T15:41:32
+   AccrueTime=2026-06-10T15:41:32
+   StartTime=2026-06-10T15:41:32 EndTime=2026-06-10T15:41:33 Deadline=N/A
+   SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-06-10T15:41:32 Scheduler=Main
+   Partition=cpu AllocNode:Sid=slurmctld:801
+   ReqNodeList=(null) ExcNodeList=(null)
+   NodeList=c1
+   BatchHost=c1
+   NumNodes=1 NumCPUs=1 NumTasks=1 CPUs/Task=1 ReqB:S:C:T=0:0:*:*
+   ReqTRES=cpu=1,mem=50M,node=1,billing=1
+   AllocTRES=cpu=1,mem=50M,node=1,billing=1
+   Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=*
+   JOB_GRES=(null)
+     Nodes=c1 CPU_IDs=0 Mem=50 GRES=
+   MinCPUsNode=1 MinMemoryNode=50M MinTmpDiskNode=0
+   Features=(null) DelayBoot=00:00:00
+   OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null)
+   Command=/data/jobs/cuda_missing.sh
+   SubmitLine=sbatch cuda_missing.sh
+   WorkDir=/data/jobs
+   StdErr=
+   StdIn=/dev/null
+   StdOut=/data/jobs/cuda_missing-13.out
+

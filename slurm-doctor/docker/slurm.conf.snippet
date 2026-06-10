@@ -1,0 +1,15 @@
+# --- slurm-doctor job completion hook ------------------------------------
+# Append these lines to /etc/slurm/slurm.conf (replacing any existing
+# JobCompType/JobCompLoc lines), then run `scontrol reconfigure`.
+# The `make doctor-install-hook` target does exactly this.
+#
+# The hook backgrounds `slurm-doctor suggest <jobid>` for failed jobs; reports
+# land in /data/jobs/.slurm-doctor/<jobid>/report.{md,json} and the TL;DR is
+# appended to /var/log/slurm/slurm-doctor-hook.log.
+JobCompType=jobcomp/script
+JobCompLoc=/opt/slurm-doctor/hooks/jobcomp_hook.sh
+
+# Optional: per-node post-job state snapshot (dmesg/nvidia-smi) for richer
+# evidence. Uncomment to enable; epilog scripts run on every node at job end.
+#Epilog=/opt/slurm-doctor/hooks/epilog.sh
+# --------------------------------------------------------------------------

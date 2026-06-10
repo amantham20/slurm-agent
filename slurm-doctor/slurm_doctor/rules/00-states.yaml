@@ -25,10 +25,10 @@
   priority: 7
   match:
     state: [FAILED, CANCELLED]
-    stderr_regex: '(?i)(slurmstepd: error: .*exceeded memory limit|oom-kill event|Out of memory: Killed process|MemoryError$)'
-  hint: "The state is not OUT_OF_MEMORY but the logs show a memory kill."
+    stderr_regex: '(?i)(exceeded (?:job )?memory limit|oom-kill event|Out of memory: Killed process|MemoryError$)'
+  hint: "The job used more memory than it requested and slurmstepd killed it (OverMemoryKill). sacct shows FAILED, but the logs show a memory kill."
   fix_kind: bump_memory
-  confidence: 0.85
+  confidence: 0.95
 
 - id: walltime_exceeded_with_log
   category: time

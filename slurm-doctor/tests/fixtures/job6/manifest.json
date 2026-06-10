@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "slurm_doctor_version": "0.1.0",
+  "jobid": "6",
+  "collected_at": "2026-06-10T15:44:27",
+  "artifacts": {
+    "sacct.parsable2.txt": {
+      "bytes": 569
+    },
+    "batch_script.sh": {
+      "bytes": 193
+    },
+    "stdout.txt": {
+      "bytes": 136,
+      "path": "/data/jobs/python_import-6.out",
+      "size_bytes": 136
+    },
+    "stderr.txt": {
+      "bytes": 136,
+      "path": "/data/jobs/python_import-6.out",
+      "size_bytes": 136
+    },
+    "nodes/c2.txt": {
+      "bytes": 654
+    },
+    "scontrol_partition.txt": {
+      "bytes": 644
+    },
+    "slurmd.filtered.log": {
+      "bytes": 8353
+    },
+    "jobcomp.filtered.log": {
+      "bytes": 405
+    },
+    "dmesg.txt": {
+      "bytes": 352
+    },
+    "env.redacted.txt": {
+      "bytes": 1019
+    }
+  },
+  "commands": [
+    {
+      "argv": [
+        "sacct",
+        "-j",
+        "6",
+        "--parsable2",
+        "--format=JobID,JobIDRaw,JobName,User,Partition,State,ExitCode,DerivedExitCode,Reason,Submit,Start,End,Elapsed,Timelimit,ReqMem,MaxRSS,MaxVMSize,AveCPU,ReqCPUS,AllocCPUS,ReqTRES,AllocTRES,NodeList,NNodes,WorkDir,Comment"
+      ],
+      "rc": 0,
+      "duration": 0.007
+    },
+    {
+      "argv": [
+        "scontrol",
+        "show",
+        "job",
+        "6",
+        "-dd"
+      ],
+      "rc": 1,
+      "duration": 0.005
+    },
+    {
+      "argv": [
+        "sacct",
+        "-j",
+        "6",
+        "-B"
+      ],
+      "rc": 0,
+      "duration": 0.006
+    },
+    {
+      "argv": [
+        "scontrol",
+        "show",
+        "node",
+        "c2"
+      ],
+      "rc": 0,
+      "duration": 0.005
+    },
+    {
+      "argv": [
+        "scontrol",
+        "show",
+        "partition",
+        "cpu"
+      ],
+      "rc": 0,
+      "duration": 0.004
+    },
+    {
+      "argv": [
+        "dmesg",
+        "-T"
+      ],
+      "rc": 0,
+      "duration": 0.004
+    },
+    {
+      "argv": [
+        "sacct",
+        "-j",
+        "6",
+        "--env-vars"
+      ],
+      "rc": 0,
+      "duration": 0.006
+    }
+  ],
+  "stdout_path": "/data/jobs/python_import-6.out",
+  "stderr_path": "/data/jobs/python_import-6.out",
+  "nodes": [
+    "c2"
+  ],
+  "parent_summary": {
+    "JobID": "6",
+    "JobName": "python_import",
+    "User": "root",
+    "Partition": "cpu",
+    "State": "FAILED",
+    "ExitCode": "1:0",
+    "DerivedExitCode": "0:0",
+    "Reason": "None",
+    "Submit": "2026-06-10T15:32:00",
+    "Start": "2026-06-10T15:32:00",
+    "End": "2026-06-10T15:32:01",
+    "Elapsed": "00:00:01",
+    "Timelimit": "00:02:00",
+    "ReqMem": "50M",
+    "ReqCPUS": "1",
+    "AllocCPUS": "1",
+    "ReqTRES": "billing=1,cpu=1,mem=50M,node=1",
+    "AllocTRES": "billing=1,cpu=1,mem=50M,node=1",
+    "NodeList": "c2",
+    "NNodes": "1",
+    "WorkDir": "/data/jobs",
+    "Comment": ""
+  }
+}

@@ -1,0 +1,41 @@
+# GPU and CUDA problems.
+
+- id: gpu_oom
+  category: gpu
+  priority: 10
+  match:
+    stderr_regex: '(?i)(CUDA out of memory|CUDA_ERROR_OUT_OF_MEMORY|cudaErrorMemoryAllocation|torch\.cuda\.OutOfMemoryError|XID 31)'
+  hint: "The GPU ran out of device memory. Reduce batch size / model size, or request a GPU with more memory - raising --mem does not help device memory."
+  confidence: 0.9
+
+- id: cuda_driver_mismatch
+  category: gpu
+  priority: 11
+  match:
+    stderr_regex: '(?i)(CUDA driver version is insufficient|forward compatibility was attempted|libcuda\.so[^ ]*: cannot open|Failed to initialize NVML|Driver/library version mismatch)'
+  hint: "The CUDA runtime and the node driver disagree. Load the CUDA module matching the driver, or pin a node with --constraint."
+  fix_kind: request_constraint
+  confidence: 0.8
+
+- id: cuda_on_cpu_node
+  category: gpu
+  priority: 12
+  match:
+    stderr_regex: '(?im)(nvidia-smi: command not found|no CUDA-capable device is detected|NVIDIA-SMI has failed)'
+  hint: "The job ran GPU tooling on a node without a GPU. Submit to the gpu partition with --gres=gpu and a gpu constraint."
+  fix_kind: request_constraint
+  fix_params:
+    constraint: gpu
+    partition: gpu
+    gres: gpu:1
+  confidence: 0.85
+
+- id: gpu_visibility
+  category: gpu
+  priority: 13
+  match:
+    stderr_regex: '(?i)(CUDA_VISIBLE_DEVICES is set to an invalid|invalid device ordinal|RuntimeError: No CUDA GPUs are available)'
+    script_regex: '(?i)(CUDA_VISIBLE_DEVICES|--gpus)'
+  hint: "The allocated GPUs are not visible to the process - usually CUDA_VISIBLE_DEVICES being overridden or srun not forwarding the GPU binding."
+  fix_kind: pin_gpu_visible
+  confidence: 0.75

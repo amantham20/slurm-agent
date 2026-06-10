@@ -1,0 +1,3 @@
+### dmesg c1
+[Wed Jun 10 15:32:00 2026] segv-bin[6138]: segfault at 0 ip 0000000000401116 sp 00007ffded1fa150 error 4 in segv-bin[1116,401000+1000] likely on CPU 1 (core 1, socket 0)
+[Wed Jun 10 15:35:16 2026] segv-bin[9763]: segfault at 0 ip 0000000000401116 sp 00007fffdfca2df0 error 4 in segv-bin[1116,401000+1000] likely on CPU 1 (core 1, socket 0)

@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "slurm_doctor_version": "0.1.0",
+  "jobid": "2",
+  "collected_at": "2026-06-10T15:44:26",
+  "artifacts": {
+    "sacct.parsable2.txt": {
+      "bytes": 589
+    },
+    "batch_script.sh": {
+      "bytes": 470
+    },
+    "stdout.txt": {
+      "bytes": 408,
+      "path": "/data/jobs/oom-2.out",
+      "size_bytes": 408
+    },
+    "stderr.txt": {
+      "bytes": 408,
+      "path": "/data/jobs/oom-2.out",
+      "size_bytes": 408
+    },
+    "nodes/c1.txt": {
+      "bytes": 671
+    },
+    "scontrol_partition.txt": {
+      "bytes": 644
+    },
+    "slurmd.filtered.log": {
+      "bytes": 10085
+    },
+    "jobcomp.filtered.log": {
+      "bytes": 395
+    },
+    "dmesg.txt": {
+      "bytes": 352
+    },
+    "env.redacted.txt": {
+      "bytes": 1019
+    }
+  },
+  "commands": [
+    {
+      "argv": [
+        "sacct",
+        "-j",
+        "2",
+        "--parsable2",
+        "--format=JobID,JobIDRaw,JobName,User,Partition,State,ExitCode,DerivedExitCode,Reason,Submit,Start,End,Elapsed,Timelimit,ReqMem,MaxRSS,MaxVMSize,AveCPU,ReqCPUS,AllocCPUS,ReqTRES,AllocTRES,NodeList,NNodes,WorkDir,Comment"
+      ],
+      "rc": 0,
+      "duration": 0.009
+    },
+    {
+      "argv": [
+        "scontrol",
+        "show",
+        "job",
+        "2",
+        "-dd"
+      ],
+      "rc": 1,
+      "duration": 0.006
+    },
+    {
+      "argv": [
+        "sacct",
+        "-j",
+        "2",
+        "-B"
+      ],
+      "rc": 0,
+      "duration": 0.006
+    },
+    {
+      "argv": [
+        "scontrol",
+        "show",
+        "node",
+        "c1"
+      ],
+      "rc": 0,
+      "duration": 0.006
+    },
+    {
+      "argv": [
+        "scontrol",
+        "show",
+        "partition",
+        "cpu"
+      ],
+      "rc": 0,
+      "duration": 0.005
+    },
+    {
+      "argv": [
+        "dmesg",
+        "-T"
+      ],
+      "rc": 0,
+      "duration": 0.004
+    },
+    {
+      "argv": [
+        "sacct",
+        "-j",
+        "2",
+        "--env-vars"
+      ],
+      "rc": 0,
+      "duration": 0.006
+    }
+  ],
+  "stdout_path": "/data/jobs/oom-2.out",
+  "stderr_path": "/data/jobs/oom-2.out",
+  "nodes": [
+    "c1"
+  ],
+  "parent_summary": {
+    "JobID": "2",
+    "JobName": "oom",
+    "User": "root",
+    "Partition": "cpu",
+    "State": "FAILED",
+    "ExitCode": "0:9",
+    "DerivedExitCode": "0:0",
+    "Reason": "None",
+    "Submit": "2026-06-10T15:32:00",
+    "Start": "2026-06-10T15:32:00",
+    "End": "2026-06-10T15:32:06",
+    "Elapsed": "00:00:06",
+    "Timelimit": "00:05:00",
+    "ReqMem": "50M",
+    "ReqCPUS": "1",
+    "AllocCPUS": "1",
+    "ReqTRES": "billing=1,cpu=1,mem=50M,node=1",
+    "AllocTRES": "billing=1,cpu=1,mem=50M,node=1",
+    "NodeList": "c1",
+    "NNodes": "1",
+    "WorkDir": "/data/jobs",
+    "Comment": ""
+  }
+}

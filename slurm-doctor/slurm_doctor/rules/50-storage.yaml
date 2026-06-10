@@ -1,0 +1,35 @@
+# Storage and filesystem problems.
+
+- id: disk_quota
+  category: disk
+  priority: 10
+  match:
+    stderr_regex: '(?i)Disk quota exceeded'
+  hint: "The user or project quota is full on the target filesystem. Clean up or write to scratch."
+  confidence: 0.9
+
+- id: disk_full
+  category: disk
+  priority: 11
+  match:
+    stderr_regex: '(?i)No space left on device'
+  hint: "The target filesystem is full. Write to a larger scratch area or clean up before re-running."
+  confidence: 0.9
+
+- id: stale_mount
+  category: infrastructure
+  priority: 12
+  match:
+    stderr_regex: '(?i)(Stale file handle|Transport endpoint is not connected|Software caused connection abort.*nfs|nfs: server .* not responding)'
+  hint: "A network mount went stale under the job - transient storage-side trouble. Requeue with a backoff and report the node + mount to the admins."
+  fix_kind: add_requeue_guard
+  confidence: 0.85
+
+- id: io_error
+  category: disk
+  priority: 13
+  match:
+    stderr_regex: '(?i)Input/output error'
+  hint: "Low-level I/O error - possibly failing disk or flaky network mount on the node."
+  fix_kind: add_requeue_guard
+  confidence: 0.6

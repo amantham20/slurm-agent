@@ -1,0 +1,29 @@
+# MPI launch failures.
+
+- id: mpirun_not_found
+  category: mpi
+  priority: 10
+  match:
+    stderr_regex: '(?m)(?:mpirun|mpiexec|orterun|prterun): command not found'
+    script_regex: '(?m)^\s*(?:mpirun|mpiexec)\b'
+  hint: "The script calls mpirun/mpiexec but no MPI launcher is installed in the job environment. On SLURM, launch MPI ranks with srun instead."
+  fix_kind: swap_mpi_launcher
+  confidence: 0.9
+
+- id: mpi_launch_failed
+  category: mpi
+  priority: 11
+  match:
+    stderr_regex: '(?i)(PMIx|PMI2?_Init|Hydra|srun: error: .*launch.*fail|MPI_INIT.*fail|ORTE.*(?:error|fail)|prte.*not.*able)'
+  hint: "The MPI runtime failed to launch or wire up its ranks. Use srun --mpi=pmix and make sure ranks match the allocation (-n vs --ntasks)."
+  fix_kind: swap_mpi_launcher
+  confidence: 0.75
+
+- id: mpi_rank_mismatch
+  category: mpi
+  priority: 12
+  match:
+    stderr_regex: '(?i)(not enough slots available|there are not enough slots|requested .* slots .* available)'
+  hint: "The launcher asked for more ranks than the allocation provides. Match mpirun -n to --ntasks, or just use srun which inherits it."
+  fix_kind: swap_mpi_launcher
+  confidence: 0.85

@@ -1,0 +1,5 @@
+allocated 300MB, holding...
+[2026-06-10T15:32:06.022] error: StepId=2.batch exceeded memory limit (317952000 > 52428800), being killed
+[2026-06-10T15:32:06.027] error: Exceeded job memory limit
+[2026-06-10T15:32:06.028] error: *** JOB 2 ON c1 CANCELLED AT 2026-06-10T15:32:06 DUE to SIGNAL Killed ***
+[2026-06-10T15:32:06.029] error: StepId=2.batch exceeded memory limit (317952000 > 52428800), being killed

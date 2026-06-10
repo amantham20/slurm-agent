@@ -1,0 +1,34 @@
+# Application-level crashes.
+
+- id: segfault_stderr
+  category: application
+  priority: 10
+  match:
+    stderr_regex: '(?im)(Segmentation fault|SIGSEGV|signal 11 \(|core dumped)'
+  hint: "The application crashed with a segmentation fault. Re-run with a debug build / smaller input, check core dumps, and verify library versions on the node."
+  confidence: 0.9
+
+- id: segfault_signal
+  category: application
+  priority: 11
+  match:
+    exit_signal: 11
+  hint: "The application was killed by SIGSEGV (signal 11)."
+  confidence: 0.85
+
+- id: bus_error
+  category: application
+  priority: 12
+  match:
+    stderr_regex: '(?im)(Bus error|SIGBUS)'
+  hint: "Bus error - often a truncated mmap-ed file or misaligned access. Check that input files are complete and the filesystem is healthy."
+  confidence: 0.85
+
+- id: license_unreachable
+  category: license
+  priority: 10
+  match:
+    stderr_regex: '(?i)(FlexNet Licensing error|FLEXlm|Cannot connect to license server|License server machine is down|All licenses are in use|ANSYSLI.*(?:error|fail)|lmgrd.*(?:down|refused))'
+  hint: "The license server is unreachable or out of seats. Check the license host/port from the node and stagger jobs with -L (licenses)."
+  fix_kind: add_requeue_guard
+  confidence: 0.8

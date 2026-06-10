@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "slurm_doctor_version": "0.1.0",
+  "jobid": "5",
+  "collected_at": "2026-06-10T15:44:27",
+  "artifacts": {
+    "sacct.parsable2.txt": {
+      "bytes": 572
+    },
+    "batch_script.sh": {
+      "bytes": 193
+    },
+    "stdout.txt": {
+      "bytes": 102,
+      "path": "/data/jobs/missing_exec-5.out",
+      "size_bytes": 102
+    },
+    "stderr.txt": {
+      "bytes": 102,
+      "path": "/data/jobs/missing_exec-5.out",
+      "size_bytes": 102
+    },
+    "nodes/c1.txt": {
+      "bytes": 671
+    },
+    "scontrol_partition.txt": {
+      "bytes": 644
+    },
+    "slurmd.filtered.log": {
+      "bytes": 8357
+    },
+    "jobcomp.filtered.log": {
+      "bytes": 406
+    },
+    "dmesg.txt": {
+      "bytes": 352
+    },
+    "env.redacted.txt": {
+      "bytes": 1019
+    }
+  },
+  "commands": [
+    {
+      "argv": [
+        "sacct",
+        "-j",
+        "5",
+        "--parsable2",
+        "--format=JobID,JobIDRaw,JobName,User,Partition,State,ExitCode,DerivedExitCode,Reason,Submit,Start,End,Elapsed,Timelimit,ReqMem,MaxRSS,MaxVMSize,AveCPU,ReqCPUS,AllocCPUS,ReqTRES,AllocTRES,NodeList,NNodes,WorkDir,Comment"
+      ],
+      "rc": 0,
+      "duration": 0.008
+    },
+    {
+      "argv": [
+        "scontrol",
+        "show",
+        "job",
+        "5",
+        "-dd"
+      ],
+      "rc": 1,
+      "duration": 0.005
+    },
+    {
+      "argv": [
+        "sacct",
+        "-j",
+        "5",
+        "-B"
+      ],
+      "rc": 0,
+      "duration": 0.006
+    },
+    {
+      "argv": [
+        "scontrol",
+        "show",
+        "node",
+        "c1"
+      ],
+      "rc": 0,
+      "duration": 0.01
+    },
+    {
+      "argv": [
+        "scontrol",
+        "show",
+        "partition",
+        "cpu"
+      ],
+      "rc": 0,
+      "duration": 0.004
+    },
+    {
+      "argv": [
+        "dmesg",
+        "-T"
+      ],
+      "rc": 0,
+      "duration": 0.004
+    },
+    {
+      "argv": [
+        "sacct",
+        "-j",
+        "5",
+        "--env-vars"
+      ],
+      "rc": 0,
+      "duration": 0.006
+    }
+  ],
+  "stdout_path": "/data/jobs/missing_exec-5.out",
+  "stderr_path": "/data/jobs/missing_exec-5.out",
+  "nodes": [
+    "c1"
+  ],
+  "parent_summary": {
+    "JobID": "5",
+    "JobName": "missing_exec",
+    "User": "root",
+    "Partition": "cpu",
+    "State": "FAILED",
+    "ExitCode": "127:0",
+    "DerivedExitCode": "0:0",
+    "Reason": "None",
+    "Submit": "2026-06-10T15:32:00",
+    "Start": "2026-06-10T15:32:00",
+    "End": "2026-06-10T15:32:01",
+    "Elapsed": "00:00:01",
+    "Timelimit": "00:02:00",
+    "ReqMem": "50M",
+    "ReqCPUS": "1",
+    "AllocCPUS": "1",
+    "ReqTRES": "billing=1,cpu=1,mem=50M,node=1",
+    "AllocTRES": "billing=1,cpu=1,mem=50M,node=1",
+    "NodeList": "c1",
+    "NNodes": "1",
+    "WorkDir": "/data/jobs",
+    "Comment": ""
+  }
+}

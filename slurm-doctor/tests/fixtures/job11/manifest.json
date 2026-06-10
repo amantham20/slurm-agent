@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "slurm_doctor_version": "0.1.0",
+  "jobid": "11",
+  "collected_at": "2026-06-10T15:44:28",
+  "artifacts": {
+    "sacct.parsable2.txt": {
+      "bytes": 584
+    },
+    "batch_script.sh": {
+      "bytes": 329
+    },
+    "stdout.txt": {
+      "bytes": 75,
+      "path": "/data/jobs/mpi_bad_launcher-11.out",
+      "size_bytes": 75
+    },
+    "stderr.txt": {
+      "bytes": 75,
+      "path": "/data/jobs/mpi_bad_launcher-11.out",
+      "size_bytes": 75
+    },
+    "nodes/c2.txt": {
+      "bytes": 654
+    },
+    "scontrol_partition.txt": {
+      "bytes": 644
+    },
+    "slurmd.filtered.log": {
+      "bytes": 7956
+    },
+    "jobcomp.filtered.log": {
+      "bytes": 412
+    },
+    "dmesg.txt": {
+      "bytes": 352
+    },
+    "env.redacted.txt": {
+      "bytes": 1050
+    }
+  },
+  "commands": [
+    {
+      "argv": [
+        "sacct",
+        "-j",
+        "11",
+        "--parsable2",
+        "--format=JobID,JobIDRaw,JobName,User,Partition,State,ExitCode,DerivedExitCode,Reason,Submit,Start,End,Elapsed,Timelimit,ReqMem,MaxRSS,MaxVMSize,AveCPU,ReqCPUS,AllocCPUS,ReqTRES,AllocTRES,NodeList,NNodes,WorkDir,Comment"
+      ],
+      "rc": 0,
+      "duration": 0.008
+    },
+    {
+      "argv": [
+        "scontrol",
+        "show",
+        "job",
+        "11",
+        "-dd"
+      ],
+      "rc": 1,
+      "duration": 0.006
+    },
+    {
+      "argv": [
+        "sacct",
+        "-j",
+        "11",
+        "-B"
+      ],
+      "rc": 0,
+      "duration": 0.006
+    },
+    {
+      "argv": [
+        "scontrol",
+        "show",
+        "node",
+        "c2"
+      ],
+      "rc": 0,
+      "duration": 0.005
+    },
+    {
+      "argv": [
+        "scontrol",
+        "show",
+        "partition",
+        "cpu"
+      ],
+      "rc": 0,
+      "duration": 0.004
+    },
+    {
+      "argv": [
+        "dmesg",
+        "-T"
+      ],
+      "rc": 0,
+      "duration": 0.004
+    },
+    {
+      "argv": [
+        "sacct",
+        "-j",
+        "11",
+        "--env-vars"
+      ],
+      "rc": 0,
+      "duration": 0.006
+    }
+  ],
+  "stdout_path": "/data/jobs/mpi_bad_launcher-11.out",
+  "stderr_path": "/data/jobs/mpi_bad_launcher-11.out",
+  "nodes": [
+    "c2"
+  ],
+  "parent_summary": {
+    "JobID": "11",
+    "JobName": "mpi_bad_launcher",
+    "User": "root",
+    "Partition": "cpu",
+    "State": "FAILED",
+    "ExitCode": "127:0",
+    "DerivedExitCode": "0:0",
+    "Reason": "None",
+    "Submit": "2026-06-10T15:35:16",
+    "Start": "2026-06-10T15:35:16",
+    "End": "2026-06-10T15:35:17",
+    "Elapsed": "00:00:01",
+    "Timelimit": "00:02:00",
+    "ReqMem": "100M",
+    "ReqCPUS": "2",
+    "AllocCPUS": "2",
+    "ReqTRES": "billing=2,cpu=2,mem=100M,node=1",
+    "AllocTRES": "billing=2,cpu=2,mem=100M,node=1",
+    "NodeList": "c2",
+    "NNodes": "1",
+    "WorkDir": "/data/jobs",
+    "Comment": ""
+  }
+}

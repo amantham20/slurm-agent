@@ -524,18 +524,25 @@ _TS_RE = re.compile(r"^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})")
 
 
 def _filter_log(path: str, jobid: str, start, end, cfg) -> str | None:
-    """Keep log lines that mention the job id; if a time window is known,
-    also keep error-level lines inside it (±2 min)."""
+    """Keep log lines that reference the job id in a job context (StepId=N,
+    [N.batch], JobId=N, "JOB N ON ..."); if a time window is known, also keep
+    error-level lines inside it (±2 min)."""
     text, meta = read_file_capped(path, 64 * 1024 * 1024)
     if text is None:
         return None
-    base = jobid.split("_")[0].split(".")[0]
-    id_re = re.compile(rf"(?<![0-9]){re.escape(base)}(?![0-9])")
+    base = re.escape(jobid.split("_")[0].split(".")[0])
+    # stepd prefix "[123.batch]", "JobId=123"/"job_id=123"/"StepId=123.x",
+    # or prose "job 123" / "JOB 123 ON ..."
+    id_re = re.compile(
+        rf"(?i)(\[{base}\.[a-z0-9]+\]"
+        rf"|(?:job_?id|stepid)=0*{base}(?![0-9])"
+        rf"|\bjob\s+0*{base}(?![0-9]))"
+    )
     win_lo = start - timedelta(seconds=120) if start else None
     win_hi = end + timedelta(seconds=120) if end else None
     keep: list[str] = []
     for ln in text.splitlines():
-        if ("job" in ln.lower() or "[" in ln) and id_re.search(ln):
+        if id_re.search(ln):
             keep.append(ln)
             continue
         if win_lo and ("error" in ln.lower() or "fatal" in ln.lower()):
