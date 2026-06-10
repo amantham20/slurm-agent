@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slurm-doctor"
+version = "0.1.0"
+description = "Autonomous SLURM job failure analyst: collect, diagnose, report, patch, resubmit"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "slurm-doctor authors" }]
+# Zero hard runtime dependencies by design: the tool must work on an
+# air-gapped controller node. PyYAML and anthropic are optional extras.
+dependencies = []
+
+[project.optional-dependencies]
+yaml = ["PyYAML>=6"]
+llm = ["anthropic>=0.40"]
+test = ["pytest>=7", "PyYAML>=6"]
+
+[project.scripts]
+slurm-doctor = "slurm_doctor.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["slurm_doctor*"]
+
+[tool.setuptools.package-data]
+slurm_doctor = ["rules/*.yaml", "hooks/*.sh"]
+
+[tool.pytest.ini_options]
+markers = [
+    "e2e: end-to-end tests that need a live SLURM cluster",
+]
+addopts = "-m 'not e2e'"

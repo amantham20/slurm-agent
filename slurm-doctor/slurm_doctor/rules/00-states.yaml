@@ -1,0 +1,122 @@
+# State-machine driven rules (State x ExitCode x Reason).
+# Lower priority value = evaluated earlier. First match wins per category.
+
+- id: oom_killed_with_log
+  category: memory
+  priority: 5
+  match:
+    state: [OUT_OF_MEMORY]
+    stderr_regex: '(?i)(exceeded memory limit|oom[-_ ]?kill|out[- ]of[- ]memory|Cannot allocate memory)'
+  hint: "The job used more memory than it requested and the cluster killed it."
+  fix_kind: bump_memory
+  confidence: 0.97
+
+- id: oom_killed
+  category: memory
+  priority: 6
+  match:
+    state: [OUT_OF_MEMORY]
+  hint: "The job used more memory than it requested and the cluster killed it."
+  fix_kind: bump_memory
+  confidence: 0.95
+
+- id: oom_stderr_only
+  category: memory
+  priority: 7
+  match:
+    state: [FAILED, CANCELLED]
+    stderr_regex: '(?i)(slurmstepd: error: .*exceeded memory limit|oom-kill event|Out of memory: Killed process|MemoryError$)'
+  hint: "The state is not OUT_OF_MEMORY but the logs show a memory kill."
+  fix_kind: bump_memory
+  confidence: 0.85
+
+- id: walltime_exceeded_with_log
+  category: time
+  priority: 5
+  match:
+    state: [TIMEOUT]
+    stderr_regex: '(?i)DUE TO TIME LIMIT'
+  hint: "The job ran into its --time limit and was killed by the scheduler."
+  fix_kind: bump_time
+  confidence: 0.97
+
+- id: walltime_exceeded
+  category: time
+  priority: 6
+  match:
+    state: [TIMEOUT]
+  hint: "The job ran into its --time limit and was killed by the scheduler."
+  fix_kind: bump_time
+  confidence: 0.95
+
+- id: deadline_missed
+  category: time
+  priority: 8
+  match:
+    state: [DEADLINE]
+  hint: "The job could not finish before its --deadline. Loosen the deadline, raise priority, or submit earlier."
+  confidence: 0.9
+
+- id: node_failed
+  category: infrastructure
+  priority: 5
+  match:
+    state: [NODE_FAIL]
+  hint: "A node allocated to this job failed or was drained mid-job. Usually transient infrastructure trouble, not a bug in the job."
+  fix_kind: add_requeue_guard
+  confidence: 0.9
+
+- id: node_drained_midjob
+  category: infrastructure
+  priority: 6
+  match:
+    slurmd_regex: '(?i)(drain|node fail|killing job|nodelist.*down)'
+    state: [FAILED, CANCELLED, NODE_FAIL]
+  hint: "slurmd logs show the node being drained or failing while the job ran."
+  fix_kind: add_requeue_guard
+  confidence: 0.75
+
+- id: boot_fail
+  category: infrastructure
+  priority: 7
+  match:
+    state: [BOOT_FAIL]
+  hint: "An allocated node failed to boot or provision. Retry, and report the node to the admins if it repeats."
+  fix_kind: add_requeue_guard
+  confidence: 0.85
+
+- id: preempted
+  category: scheduling
+  priority: 5
+  match:
+    state: [PREEMPTED]
+  hint: "Higher-priority work preempted this job. Make it requeue-able or submit to a non-preemptable partition."
+  fix_kind: add_requeue_guard
+  confidence: 0.9
+
+- id: cancelled_with_signal
+  category: scheduling
+  priority: 6
+  match:
+    state: [CANCELLED]
+    exit_signal: 15
+  hint: "The job was signalled (SIGTERM), not cancelled by hand - typically preemption, scancel --signal, or an admin/limit action. Check Reason and cluster events."
+  confidence: 0.7
+
+- id: cancelled_by_user
+  category: scheduling
+  priority: 7
+  match:
+    state: [CANCELLED]
+    cancelled_by: user
+  hint: "The job was cancelled by its owner (scancel). Nothing to fix on the cluster side."
+  confidence: 0.9
+
+- id: cancelled_by_admin
+  category: scheduling
+  priority: 8
+  match:
+    state: [CANCELLED]
+    cancelled_by: admin
+  hint: "The job was cancelled by root/admin. Ask the operators why before resubmitting."
+  confidence: 0.85
