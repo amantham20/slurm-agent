@@ -150,7 +150,7 @@ def read_file_capped(path: str | Path, max_bytes: int) -> tuple[str | None, dict
 
 _SECRET_PATTERNS = [
     re.compile(r"(?im)^(?P<k>\s*(?:export\s+)?[A-Za-z0-9_]*(?:AWS_[A-Z0-9_]+|[A-Za-z0-9_]*TOKEN[A-Za-z0-9_]*|[A-Za-z0-9_]*_KEY|[A-Za-z0-9_]*PASSWORD[A-Za-z0-9_]*|[A-Za-z0-9_]*SECRET[A-Za-z0-9_]*|[A-Za-z0-9_]*CREDENTIALS?[A-Za-z0-9_]*))(?P<sep>\s*=\s*)(?P<v>.+)$"),
-    re.compile(r"(?i)\b(authorization|x-api-key|api[-_]?key|bearer)\b(\s*[:=]\s*)(\S+)"),
+    re.compile(r"(?im)\b(authorization|x-api-key|api[-_]?key|bearer)\b(\s*[:=]\s*)(.+)$"),
 ]
 
 

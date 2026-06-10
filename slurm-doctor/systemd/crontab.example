@@ -1,0 +1,3 @@
+# slurm-doctor periodic sweep without systemd (e.g. inside the slurmctld
+# container). Already-reported jobs are skipped, so overlap is harmless.
+*/15 * * * * slurm /usr/local/bin/slurm-doctor sweep --since '20 minutes ago' >> /var/log/slurm/slurm-doctor-sweep.log 2>&1

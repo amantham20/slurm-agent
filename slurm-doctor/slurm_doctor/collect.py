@@ -25,6 +25,7 @@ manifest.json             index + parsed summary of all of the above
 from __future__ import annotations
 
 import dataclasses
+import functools
 import json
 import logging
 import os
@@ -135,19 +136,19 @@ class Bundle:
     def node_info(self, node: str) -> str | None:
         return self._read(f"nodes/{node}.txt")
 
-    # ---- parsed views -----------------------------------------------------------
-    @property
+    # ---- parsed views (cached: sacct text never changes under a bundle) ---------
+    @functools.cached_property
     def records(self) -> list[dict]:
         return parse_parsable2(self.sacct_raw or "")
 
-    @property
+    @functools.cached_property
     def parent(self) -> dict:
         for rec in self.records:
             if "." not in rec.get("JobID", "."):
                 return rec
         return self.records[0] if self.records else {}
 
-    @property
+    @functools.cached_property
     def steps(self) -> list[dict]:
         return [r for r in self.records if "." in r.get("JobID", "")]
 

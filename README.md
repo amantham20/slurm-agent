@@ -5,6 +5,12 @@ deployment using Docker Compose. This repository simplifies the process of
 setting up a robust Slurm environment for development, testing, or lightweight
 usage.
 
+> **This fork ships [slurm-doctor](slurm-doctor/README.md)** — an autonomous
+> job failure analyst that collects evidence for failed jobs, diagnoses root
+> causes with a rule engine (optional Claude fallback), writes reports with
+> cited evidence and fix diffs, and can resubmit safely patched jobs.
+> Try: `make up && make doctor-install-hook && make test-doctor`.
+
 ## 🏁 Quick Start
 
 **Requirements:** [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)

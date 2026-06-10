@@ -1,0 +1,15 @@
+[Unit]
+Description=slurm-doctor: diagnose recently failed SLURM jobs
+After=slurmctld.service
+Wants=slurmctld.service
+
+[Service]
+Type=oneshot
+User=slurm
+Group=slurm
+# Window slightly larger than the timer period so restarts don't drop jobs;
+# already-reported jobs are skipped, so overlap is free.
+ExecStart=/usr/local/bin/slurm-doctor sweep --since '20 minutes ago'
+Environment=SLURM_DOCTOR_CACHE=/var/spool/slurm/slurm-doctor-cache
+Nice=10
+IOSchedulingClass=idle

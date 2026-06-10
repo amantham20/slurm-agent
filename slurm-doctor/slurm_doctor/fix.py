@@ -304,10 +304,14 @@ def apply_fix(fix: ProposedFix, script_text: str, bundle: Bundle) -> PatchResult
         if op in ("replace", "insert"):
             inserted += j2 - j1
     total = max(len(lines), 1)
-    if rewritten / total > MAX_CHANGE_RATIO or inserted / total > 0.5:
+    # An absolute floor of 2 lines keeps surgical one-line fixes legal even in
+    # very short scripts, where any change exceeds 20%.
+    rewrite_cap = max(2, MAX_CHANGE_RATIO * total)
+    insert_cap = max(8, 0.5 * total)
+    if rewritten > rewrite_cap or inserted > insert_cap:
         notes.append(
             f"patch would rewrite {rewritten}/{total} lines and insert {inserted} "
-            f"(caps: {MAX_CHANGE_RATIO:.0%} rewritten, 50% inserted); "
+            f"(caps: {rewrite_cap:.0f} rewritten, {insert_cap:.0f} inserted); "
             "downgrading to suggest-only"
         )
         return PatchResult(fix, script_text, patched, notes, applicable=False, downgraded=True)
@@ -408,7 +412,7 @@ def heal_chain_depth(bundle: Bundle, cfg: Config) -> int:
             parent = m.group("parent")
         elif entry:
             parent = entry.get("parent")
-        if not parent:
+        if not parent or str(parent) == jobid:
             break
         depth += 1
         jobid = str(parent)

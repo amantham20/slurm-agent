@@ -276,3 +276,37 @@ test-all:  ## Run test suite against all supported versions
 	echo "========================================";
 
 rebuild: clean build up status
+
+# ============================================================================
+# slurm-doctor: autonomous job failure analyst (see slurm-doctor/README.md)
+# ============================================================================
+.PHONY: doctor-install doctor-install-hook doctor-uninstall-hook test-doctor doctor-sweep
+
+DOCTOR_DIR := slurm-doctor
+
+doctor-install:  ## Install/refresh slurm-doctor inside the slurmctld container
+	docker exec slurmctld rm -rf /opt/slurm-doctor
+	docker cp $(DOCTOR_DIR) slurmctld:/opt/slurm-doctor
+	docker exec slurmctld bash -c "ln -sfn /opt/slurm-doctor/slurm_doctor/hooks /opt/slurm-doctor/hooks && chmod +x /opt/slurm-doctor/slurm_doctor/hooks/*.sh && chmod -R a+rX /opt/slurm-doctor"
+	docker exec slurmctld bash -c "python3 -m pip --version >/dev/null 2>&1 || python3 -m ensurepip --upgrade >/dev/null"
+	docker exec slurmctld python3 -m pip install -q -e /opt/slurm-doctor
+	docker exec slurmctld bash -c "install -m 644 /opt/slurm-doctor/completions/slurm-doctor.bash /etc/bash_completion.d/slurm-doctor 2>/dev/null || true"
+	docker exec slurmctld slurm-doctor --version
+
+doctor-install-hook: doctor-install  ## Wire the jobcomp/script hook into the LIVE slurm.conf (+ reconfigure)
+	docker exec slurmctld bash -c "mkdir -p /data/jobs/.slurm-doctor /var/spool/slurm/slurm-doctor-cache && chown -R slurm:slurm /data/jobs/.slurm-doctor /var/spool/slurm/slurm-doctor-cache && chmod 775 /data/jobs/.slurm-doctor"
+	docker exec slurmctld bash -c "grep -q 'jobcomp_hook.sh' /etc/slurm/slurm.conf || { sed -i -E 's|^(JobCompType=.*)|#\1 # disabled by slurm-doctor|; s|^(JobCompLoc=.*)|#\1 # disabled by slurm-doctor|' /etc/slurm/slurm.conf && cat /opt/slurm-doctor/docker/slurm.conf.snippet >> /etc/slurm/slurm.conf; }"
+	docker exec slurmctld scontrol reconfigure
+	@echo "jobcomp hook live: failed jobs now auto-generate reports under /data/jobs/.slurm-doctor/"
+
+doctor-uninstall-hook:  ## Remove the jobcomp hook and restore filetxt job completion
+	docker exec slurmctld bash -c "sed -i -E '/slurm-doctor job completion hook/,/^# -+$$/d; /jobcomp_hook.sh/d; s|^#(JobCompType=.*) # disabled by slurm-doctor|\1|; s|^#(JobCompLoc=.*) # disabled by slurm-doctor|\1|' /etc/slurm/slurm.conf"
+	docker exec slurmctld scontrol reconfigure
+
+test-doctor: doctor-install  ## Run slurm-doctor unit + end-to-end tests inside the live cluster
+	docker exec slurmctld bash -c "python3 -m pip install -q pytest 2>/dev/null || python3 -m pip install -q pytest"
+	docker exec slurmctld bash -c "cd /opt/slurm-doctor && python3 -m pytest tests -q"
+	docker exec slurmctld bash -c "cd /opt/slurm-doctor && python3 -m pytest tests -q -m e2e"
+
+doctor-sweep:  ## One-off failure sweep of the last 24h
+	docker exec slurmctld slurm-doctor sweep --since '24 hours ago'

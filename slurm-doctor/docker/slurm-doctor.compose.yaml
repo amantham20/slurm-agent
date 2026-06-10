@@ -1,0 +1,38 @@
+# Optional compose overlay: bind-mount the slurm-doctor source into slurmctld
+# for live development, and run the periodic sweep as a sidecar (Mode C
+# without systemd/cron inside the controller).
+#
+#   docker compose -f docker-compose.yml -f slurm-doctor/docker/slurm-doctor.compose.yaml up -d
+#
+# The sidecar shares the controller's config/munge/log/data volumes, so all
+# SLURM client commands work; it only ever runs `suggest` (never `heal`).
+services:
+  slurmctld:
+    volumes:
+      - ../slurm-doctor:/opt/slurm-doctor
+
+  slurm-doctor-sweep:
+    image: slurm-docker-cluster:${SLURM_VERSION:-25.11.4}
+    container_name: slurm-doctor-sweep
+    init: true
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        python3 -m pip --version >/dev/null 2>&1 || python3 -m ensurepip --upgrade
+        python3 -m pip install -q -e /opt/slurm-doctor
+        echo "slurm-doctor sweep sidecar: every 15 minutes"
+        while true; do
+          slurm-doctor sweep --since '20 minutes ago' || true
+          sleep 900
+        done
+    volumes:
+      - ../slurm-doctor:/opt/slurm-doctor
+      - etc_munge:/etc/munge
+      - etc_slurm:/etc/slurm
+      - slurm_jobdir:/data
+      - var_log_slurm:/var/log/slurm
+    depends_on:
+      slurmctld:
+        condition: service_healthy
+    networks:
+      - slurm-network
